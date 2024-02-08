@@ -24,15 +24,51 @@
   </body>
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io("/playerControls"); // Connect to the playerControls namespace
+    // Connect to the playerControls namespace
+    const socket = io("/playerControls");
+    // Checking socket connection;
+    socket.on("connect", () => {
+      console.log("Connected to server");
+  });
     const videoPlayer = document.getElementById("videoPlayer");
-    
-    socket.on("play", () => {
-      videoPlayer.play();
-    });
 
-    socket.on("pause", () => {
+    // Function to handle play event
+    const handlePlay = () => {
+      console.log("Play event received");
+      if (!videoPlayer.paused) return;
+      videoPlayer.play().catch(error => {
+          console.error("Error playing video:", error);
+      });
+  };
+
+  // Function to handle pause event
+  const handlePause = () => {
+      console.log("Pause event received");
+      if (videoPlayer.paused) return;
       videoPlayer.pause();
-    });
+  };
+
+  // Wait for the video player to be ready before setting up event listeners
+  videoPlayer.addEventListener("canplay", () => {
+      console.log("Video player ready");
+      // Listen for play and pause events from the server
+      socket.on("play", handlePlay);
+      socket.on("pause", handlePause);
+  });
+
+  // If the video player is already ready, set up event listeners immediately
+  if (videoPlayer.readyState >= 2) {
+      console.log("Video player already ready");
+      // Listen for play and pause events from the server
+      socket.on("play", handlePlay);
+      socket.on("pause", handlePause);
+  }
+
+  // Function to play video when clicked
+  function playVideo() {
+      videoPlayer.play().catch(error => {
+          console.error("Error playing video:", error);
+      });
+  }
   </script>
 </html>

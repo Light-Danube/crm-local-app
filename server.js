@@ -80,8 +80,14 @@ io.of("/playerControls").on('connection', (socket) => {
       // Отправить событие "pause" всем клиентам в канале playerControls
       socket.broadcast.emit("pause");
    });
+
+   //Debug on disconnection
+   socket.on("disconnect", () => {
+      console.log('A user disconnected from playerControls');
+   });
 });
 
 server.listen(PORT, () => {
    console.log(`Server is running on http://localhost:${PORT}`);
+   console.log(`To run video page, use http://localhost:${PORT}/video`);
 });
