@@ -1,7 +1,6 @@
-from flask import Flask, request, send_file, redirect, url_for
+from flask import Flask, request, send_file, redirect, url_for, render_template
 from flask_socketio import SocketIO, emit
 import os
-import subprocess
 
 app = Flask(__name__)
 socketio = SocketIO(app)
@@ -23,20 +22,7 @@ def upload_file():
 @app.route('/player')
 def player():
     video = request.args.get('video', '')
-    return f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Video Player</title>
-    </head>
-    <body>
-        <video width="640" height="480" controls>
-            <source src="/stream/{video}" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
-    </body>
-    </html>
-    """
+    return render_template('video.html', video=video)
 
 # Endpoint for streaming video files
 @app.route('/stream/<path:filename>')
@@ -47,13 +33,15 @@ def stream_file(filename):
 @socketio.on('control')
 def handle_control(message):
     action = message['action']
-    # Perform action based on control message
     if action == 'play':
         # Logic to play the video
-        pass
-    elif action == 'pause':
-        # Logic to pause the video
-        pass
+        print("Video is playing...")
+        socketio.emit('control', {'action': 'play'}, namespace='/playerControls')
+    elif action == 'stop':
+        # Logic to stop the video
+        print("Video is stopped.")
+        socketio.emit('control', {'action': 'stop'}, namespace='/playerControls')
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)
+

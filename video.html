@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Play Video</title>
+    <style>
+      h1 {
+        color: lightgray;
+      }
+      body {
+        margin: 40px auto;
+        max-width: 650px;
+        background-color: #444;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Play Video</h1>
+    <video id="videoPlayer" width="650">
+      <source src="/test-uploads/test.mp4" type="video/mp4" />
+      Your browser does not support the video tag.
+    </video>
+  </body>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io('/playerControls');  // Connect to the playerControls namespace
+
+    socket.on('control', function(message) {
+      const action = message.action;
+      const video = document.getElementById('videoPlayer');
+      
+      if (action === 'play') {
+        video.play();
+      } else if (action === 'stop') {
+        video.pause();
+        video.currentTime = 0;
+      }
+    });
+  </script>
+</html>
+
