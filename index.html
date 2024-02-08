@@ -23,14 +23,14 @@
     </form>
     <button onclick="playPauseVideo()">Play/Pause</button>
     <button onclick="stopVideo()">Stop</button>
-    <video id="videoPlayer" width="650">
+    <video id="videoPlayer" width="650" controls>
       <source src="/uploads/test.mp4" type="video/mp4" />
       Your browser does not support the video tag.
     </video>
   </body>
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io("playerControls");
+    const socket = io("/playerControls");
 
     const videoFileInput = document.getElementById("videoFile");
     const videoPlayer = document.getElementById("videoPlayer");
@@ -38,14 +38,10 @@
     function playPauseVideo() {
       if (videoPlayer.paused) {
         videoPlayer.play();
-        io.sockets
-          .in("playerControls")
-          .emit("player start", videoPlayer.play());
+        socket.emit("player start", videoPlayer.play());
       } else {
         videoPlayer.pause();
-        io.sockets
-          .in("playerControls")
-          .emit("player pause", videoPlayer.pause());
+        socket.emit("player pause", videoPlayer.pause());
       }
     }
 

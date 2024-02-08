@@ -1,14 +1,17 @@
 const express = require('express');
-const { createServer } = require('node:http');
+const { createServer } = require('http');
 const fs = require("fs");
 const path = require('path');
 const multer = require('multer');
 const { Server } = require("socket.io");
+const cors = require('cors');
 
 const app = express();
 const server = createServer(app);
 const io = new Server(server);
 const PORT = 3000;
+
+app.use(cors());
 
 // Настройка папки для загрузки видео файлов
 const storage = multer.diskStorage({
@@ -61,8 +64,22 @@ app.post('/upload', upload.single('video'), (req, res) => {
 // Статическая директория для доступа к загруженным видео файлам
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-io.on('connection', (socket) => {
-   console.log('a user connected');
+// Обработчик подключения к каналу playerControls
+io.of("/playerControls").on('connection', (socket) => {
+   console.log('a user connected to playerControls');
+
+   // Обработчик события "player start"
+   socket.on("player start", () => {
+      console.log("server socked player started")
+      // Отправить событие "play" всем клиентам в канале playerControls
+      socket.broadcast.emit("play");
+   });
+
+   // Обработчик события "player pause"
+   socket.on("player pause", () => {
+      // Отправить событие "pause" всем клиентам в канале playerControls
+      socket.broadcast.emit("pause");
+   });
 });
 
 server.listen(PORT, () => {
