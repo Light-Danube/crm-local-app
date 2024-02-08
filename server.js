@@ -80,6 +80,14 @@ io.of("/playerControls").on('connection', (socket) => {
       // Отправить событие "pause" всем клиентам в канале playerControls
       socket.broadcast.emit("pause");
    });
+
+   socket.on("player timeupdate", (time) => {
+      socket.broadcast.emit("timeupdate", time);
+   })
+
+   socket.on("player volumeupdate", (volume) => {
+      socket.broadcast.emit("volumeupdate", volume);
+   })
 });
 
 server.listen(PORT, () => {

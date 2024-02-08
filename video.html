@@ -9,16 +9,13 @@
         color: lightgray;
       }
       body {
-        margin: 40px auto;
-        max-width: 650px;
-        background-color: #444;
+        background-color: black;
       }
     </style>
   </head>
   <body>
-    <h1>Play Video</h1>
-    <video id="videoPlayer" width="650">
-      <source src="/uploads/test.mp4" type="video/mp4" />
+    <video id="videoPlayer" style="width: 100%">
+      <source src="/uploads/test.mp4"/>
       Your browser does not support the video tag.
     </video>
   </body>
@@ -26,13 +23,22 @@
   <script>
     const socket = io("/playerControls"); // Connect to the playerControls namespace
     const videoPlayer = document.getElementById("videoPlayer");
-    
+
     socket.on("play", () => {
+      console.log("play")
       videoPlayer.play();
     });
 
     socket.on("pause", () => {
       videoPlayer.pause();
+    });
+
+    socket.on("timeupdate", (time) => {
+      videoPlayer.currentTime = time;
+    });
+
+    socket.on("volumeupdate", (volume) => {
+      videoPlayer.volume = volume;
     });
   </script>
 </html>

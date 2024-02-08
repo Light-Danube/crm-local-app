@@ -21,12 +21,18 @@
       <input type="file" name="video" id="videoFile" accept="video/*" />
       <button type="submit">Upload</button>
     </form>
-    <button onclick="playPauseVideo()">Play/Pause</button>
-    <button onclick="stopVideo()">Stop</button>
-    <video id="videoPlayer" width="650" controls>
+    <video id="videoPlayer" width="650" controls muted controlslist="no">
       <source src="/uploads/test.mp4" type="video/mp4" />
       Your browser does not support the video tag.
     </video>
+    <input
+      type="range"
+      id="volumeControl"
+      min="0"
+      max="1"
+      step="0.01"
+      value="1"
+    />
   </body>
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -34,21 +40,27 @@
 
     const videoFileInput = document.getElementById("videoFile");
     const videoPlayer = document.getElementById("videoPlayer");
+    const volumeControl = document.getElementById("volumeControl");
 
-    function playPauseVideo() {
-      if (videoPlayer.paused) {
-        videoPlayer.play();
-        socket.emit("player start", videoPlayer.play());
-      } else {
-        videoPlayer.pause();
-        socket.emit("player pause", videoPlayer.pause());
-      }
-    }
+    videoPlayer.addEventListener("play", () =>
+      socket.emit("player start", videoPlayer.play())
+    );
 
-    function stopVideo() {
-      videoPlayer.pause();
-      videoPlayer.currentTime = 0;
-    }
+    videoPlayer.addEventListener("pause", () =>
+      socket.emit("player pause", videoPlayer.pause())
+    );
+
+    videoPlayer.addEventListener("seeking", () =>
+      socket.emit("player timeupdate", videoPlayer.currentTime)
+    );
+
+    volumeControl.addEventListener("input", () =>
+      socket.emit("player volumeupdate", volumeControl.value)
+    );
+
+    //  videoPlayer.addEventListener("timeupdate", () =>
+    //    socket.emit("player timeupdate", videoPlayer.currentTime)
+    //  );
 
     videoFileInput.addEventListener("change", function () {
       const file = this.files[0];
