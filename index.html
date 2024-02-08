@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Upload Video</title>
+    <style>
+      h1 {
+        color: lightgray;
+      }
+      body {
+        margin: 40px auto;
+        max-width: 650px;
+        background-color: #444;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Upload Video</h1>
+    <form action="/upload" method="post" enctype="multipart/form-data">
+      <input type="file" name="video" id="videoFile" accept="video/*" />
+      <button type="submit">Upload</button>
+    </form>
+    <button onclick="playPauseVideo()">Play/Pause</button>
+    <button onclick="stopVideo()">Stop</button>
+    <video id="videoPlayer" width="650">
+      <source src="/uploads/test.mp4" type="video/mp4" />
+      Your browser does not support the video tag.
+    </video>
+  </body>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io("playerControls");
+
+    const videoFileInput = document.getElementById("videoFile");
+    const videoPlayer = document.getElementById("videoPlayer");
+
+    function playPauseVideo() {
+      if (videoPlayer.paused) {
+        videoPlayer.play();
+        io.sockets
+          .in("playerControls")
+          .emit("player start", videoPlayer.play());
+      } else {
+        videoPlayer.pause();
+        io.sockets
+          .in("playerControls")
+          .emit("player pause", videoPlayer.pause());
+      }
+    }
+
+    function stopVideo() {
+      videoPlayer.pause();
+      videoPlayer.currentTime = 0;
+    }
+
+    videoFileInput.addEventListener("change", function () {
+      const file = this.files[0];
+      const url = URL.createObjectURL(file);
+      videoPlayer.src = url;
+      console.log(videoPlayer.src);
+    });
+  </script>
+</html>
