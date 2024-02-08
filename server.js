@@ -6,6 +6,8 @@ const multer = require('multer');
 const { Server } = require("socket.io");
 const cors = require('cors');
 
+const ytdl = require('ytdl-core');
+
 const app = express();
 const server = createServer(app);
 const io = new Server(server);
@@ -64,6 +66,26 @@ app.post('/upload', upload.single('video'), (req, res) => {
 // Статическая директория для доступа к загруженным видео файлам
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Получение YouTube видео и передача на клиент
+app.get('/youtube/:videoId', async (req, res) => {
+   try {
+      const videoId = req.params.videoId;
+      const videoURL = `https://www.youtube.com/watch?v=${videoId}`;
+      
+      // Получение информации о видео
+      const info = await ytdl.getInfo(videoURL);
+
+      // Передача потока видео на клиент
+      res.header('Content-Disposition', `attachment; filename="${info.videoDetails.title}.mp4"`);
+      ytdl(videoURL, {
+         format: 'mp4',
+      }).pipe(res);
+   } catch (err) {
+      console.error('Error fetching YouTube video:', err);
+      res.status(500).send('Error fetching YouTube video');
+   }
+});
+
 // Обработчик подключения к каналу playerControls
 io.of("/playerControls").on('connection', (socket) => {
    console.log('a user connected to playerControls');
@@ -81,6 +103,11 @@ io.of("/playerControls").on('connection', (socket) => {
       socket.broadcast.emit("pause");
    });
 
+   //Debug on disconnection
+   socket.on("disconnect", () => {
+      console.log('A user disconnected from playerControls');
+   });
+
    socket.on("player timeupdate", (time) => {
       socket.broadcast.emit("timeupdate", time);
    })
@@ -92,4 +119,5 @@ io.of("/playerControls").on('connection', (socket) => {
 
 server.listen(PORT, () => {
    console.log(`Server is running on http://localhost:${PORT}`);
+   console.log(`To run video page, use http://localhost:${PORT}/video`);
 });
