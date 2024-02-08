@@ -26,10 +26,6 @@
   <script>
     // Connect to the playerControls namespace
     const socket = io("/playerControls");
-    // Checking socket connection;
-    socket.on("connect", () => {
-      console.log("Connected to server");
-  });
     const videoPlayer = document.getElementById("videoPlayer");
 
     socket.on("play", () => {
