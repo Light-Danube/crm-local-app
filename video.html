@@ -24,8 +24,18 @@
   </body>
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io();
-    socket.join('playerControls');
-    socket.on('playerControls', event())
+    const socket = io('/playerControls');  // Connect to the playerControls namespace
+
+    socket.on('control', function(message) {
+      const action = message.action;
+      const video = document.getElementById('videoPlayer');
+      
+      if (action === 'play') {
+        video.play();
+      } else if (action === 'stop') {
+        video.pause();
+        video.currentTime = 0;
+      }
+    });
   </script>
 </html>
