@@ -32,43 +32,23 @@
   });
     const videoPlayer = document.getElementById("videoPlayer");
 
-    // Function to handle play event
-    const handlePlay = () => {
-      console.log("Play event received");
-      if (!videoPlayer.paused) return;
-      videoPlayer.play().catch(error => {
-          console.error("Error playing video:", error);
-      });
-  };
-
-  // Function to handle pause event
-  const handlePause = () => {
-      console.log("Pause event received");
-      if (videoPlayer.paused) return;
+    socket.on("play", () => {
+      console.log("Received play command from server");
+      videoPlayer.play();
+    });
+  
+    socket.on("pause", () => {
+      console.log("Received pause command from server");
       videoPlayer.pause();
-  };
-
-  // Wait for the video player to be ready before setting up event listeners
-  videoPlayer.addEventListener("canplay", () => {
-      console.log("Video player ready");
-      // Listen for play and pause events from the server
-      socket.on("play", handlePlay);
-      socket.on("pause", handlePause);
-  });
-
-  // If the video player is already ready, set up event listeners immediately
-  if (videoPlayer.readyState >= 2) {
-      console.log("Video player already ready");
-      // Listen for play and pause events from the server
-      socket.on("play", handlePlay);
-      socket.on("pause", handlePause);
-  }
-
-  // Function to play video when clicked
-  function playVideo() {
-      videoPlayer.play().catch(error => {
-          console.error("Error playing video:", error);
-      });
-  }
+    });
+  
+    // Debugging: Log socket connection status
+    socket.on("connect", () => {
+      console.log("Connected to server");
+    });
+  
+    socket.on("disconnect", () => {
+      console.log("Disconnected from server");
+    });
   </script>
 </html>
