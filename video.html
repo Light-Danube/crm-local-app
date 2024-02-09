@@ -35,8 +35,12 @@
       videoPlayer.pause();
     });
 
+    // Update the videoPlayer's currentTime when receiving timeupdate from the server
     socket.on("timeupdate", (time) => {
-      videoPlayer.currentTime = time;
+      // Update the currentTime only if the difference is significant to avoid infinite loop
+      if (Math.abs(videoPlayer.currentTime - time) > 0.1) {
+        videoPlayer.currentTime = time;
+      }
     });
 
     socket.on("volumeupdate", (volume) => {
