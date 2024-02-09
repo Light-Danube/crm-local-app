@@ -77,7 +77,7 @@
         console.error("Failed to stream YouTube video:", error);
       }
     });
-    
+
     // Function to send video URL to puppet page
     function sendVideoUrl(url) {
       socket.emit("video url", url);
