@@ -147,10 +147,10 @@ io.of("/playerControls").on('connection', (socket) => {
    })
 
    // Handle receiving video URL from controller page
-  socket.on("video url", (url) => {
-   // Broadcast the received URL to all clients (including the puppet page)
-   io.emit("video url", url);
- });
+   socket.on("video url", (url) => {
+      // Broadcast the received URL to all clients (including the puppet page)
+      socket.broadcast.emit("video url", url);
+   });
 });
 
 server.listen(PORT, () => {

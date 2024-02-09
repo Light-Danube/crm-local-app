@@ -68,17 +68,16 @@
         }
         // Set video source
         videoPlayer.src = URL.createObjectURL(await response.blob());
-
-        // Send the YouTube video URL to the puppet page via WebSockets
-        sendVideoUrl(youtubeUrl);
         // Play video
-        //videoPlayer.play();
-        
+        videoPlayer.play();
+
+        // Send the video URL to the puppet page
+        sendVideoUrl(youtubeUrl);
       } catch (error) {
         console.error("Failed to stream YouTube video:", error);
       }
     });
-
+    
     // Function to send video URL to puppet page
     function sendVideoUrl(url) {
       socket.emit("video url", url);
