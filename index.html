@@ -17,12 +17,20 @@
   </head>
   <body>
     <h1>Upload Video</h1>
+    <!-- Form to upload local videos -->
     <form action="/upload" method="post" enctype="multipart/form-data">
       <input type="file" name="video" id="videoFile" accept="video/*" />
       <button type="submit">Upload</button>
     </form>
+
+    <!-- Form to stream YouTube videos -->
+    <form id="youtubeForm">
+      <input type="text" id="youtubeUrlInput" placeholder="Enter YouTube URL" />
+      <button type="submit">Stream YouTube Video</button>
+    </form>
+
     <video id="videoPlayer" width="650" controls muted controlslist="no">
-      <source src="/uploads/test.mp4" type="video/mp4" />
+      <!---<source src="/uploads/test.mp4" type="video/mp4" /> -->
       Your browser does not support the video tag.
     </video>
     <input
@@ -41,6 +49,47 @@
     const videoFileInput = document.getElementById("videoFile");
     const videoPlayer = document.getElementById("videoPlayer");
     const volumeControl = document.getElementById("volumeControl");
+    const youtubeForm = document.getElementById("youtubeForm");
+    const youtubeUrlInput = document.getElementById("youtubeUrlInput");
+
+
+    // Handle YouTube video streaming form submission
+    youtubeForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const youtubeUrl = youtubeUrlInput.value;
+
+      try {
+        // Extract video ID from YouTube URL
+        const videoId = extractVideoId(youtubeUrl);
+        // Fetch YouTube video from server
+        const response = await fetch(`/youtube/${videoId}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch YouTube video");
+        }
+        // Set video source
+        videoPlayer.src = URL.createObjectURL(await response.blob());
+
+        // Send the YouTube video URL to the puppet page via WebSockets
+        sendVideoUrl(youtubeUrl);
+        // Play video
+        //videoPlayer.play();
+        
+      } catch (error) {
+        console.error("Failed to stream YouTube video:", error);
+      }
+    });
+
+    // Function to send video URL to puppet page
+    function sendVideoUrl(url) {
+      socket.emit("video url", url);
+    }
+
+    // Function to extract video ID from YouTube URL
+    function extractVideoId(url) {
+      const match = url.match(/[?&]v=([^&]+)/);
+      return match && match[1];
+    }
+
 
     videoPlayer.addEventListener("play", () =>
       socket.emit("player start", videoPlayer.play())
@@ -68,5 +117,6 @@
       videoPlayer.src = url;
       console.log(videoPlayer.src);
     });
+
   </script>
 </html>

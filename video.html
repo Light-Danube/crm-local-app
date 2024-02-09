@@ -15,7 +15,7 @@
   </head>
   <body>
     <video id="videoPlayer" style="width: 100%">
-      <source src="/uploads/test.mp4"/>
+      <!---<source src="/uploads/test.mp4"/> --->
       Your browser does not support the video tag.
     </video>
   </body>
@@ -51,6 +51,24 @@
 
     socket.on("volumeupdate", (volume) => {
       videoPlayer.volume = volume;
+    });
+
+    // Function to extract video ID from YouTube URL
+    function extractVideoId(url) {
+      const match = url.match(/[?&]v=([^&]+)/);
+      return match && match[1];
+    }
+
+    // Handle receiving video URL from controller page
+    socket.on("video url", (url) => {
+      console.log("Received video URL:", url);
+      const videoId = extractVideoId(url);
+      if (videoId) {
+        // Set video source to YouTube video
+        videoPlayer.src = `/youtube/${videoId}`;
+      } else {
+        console.error("Invalid video URL:", url);
+      }
     });
   </script>
 </html>
