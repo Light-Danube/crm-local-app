@@ -37,26 +37,16 @@
       videoPlayer.pause();
     });
 
-   // Флаг для предотвращения бесконечной рекурсии при перемотке видео
-    let seeking = false;
-
-    // Обновление времени воспроизведения на странице-марионетке при получении обновления от сервера
+    // Update the videoPlayer's currentTime when receiving timeupdate from the server
     socket.on("timeupdate", (time) => {
-      // Проверяем, не находимся ли мы в режиме перемотки
-      if (!seeking) {
-        // Устанавливаем новое время воспроизведения только если оно отличается от текущего
-        if (Math.abs(videoPlayer.currentTime - time) > 0.01) {
-          // Устанавливаем флаг seeking, чтобы избежать бесконечной рекурсии
-          seeking = true;
-          videoPlayer.currentTime = time;
-          // Снимаем флаг seeking после того, как установили новое время воспроизведения
-          setTimeout(() => {
-            seeking = false;
-          }, 100);
-        }
+      // Устанавливаем новое время воспроизведения только если оно отличается от текущего
+      if (Math.abs(videoPlayer.currentTime - time) > 0.01) {
+        videoPlayer.currentTime = time;
       }
     });
-    
+
+   
+
     socket.on("volumeupdate", (volume) => {
       videoPlayer.volume = volume;
     });
