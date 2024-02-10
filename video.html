@@ -25,6 +25,8 @@
     const socket = io("/playerControls");
     const videoPlayer = document.getElementById("videoPlayer");
 
+    let currentTime = 0;
+
     socket.on("play", () => {
       //console.log("Received play command from server");
       videoPlayer.play();
@@ -35,12 +37,26 @@
       videoPlayer.pause();
     });
 
-    // Update the videoPlayer's currentTime when receiving timeupdate from the server
-    socket.on("timeupdate", (time) => {
-      videoPlayer.currentTime = time;
-      console.log("Testing time ${time}", time)
-    });
+   // Флаг для предотвращения бесконечной рекурсии при перемотке видео
+    let seeking = false;
 
+    // Обновление времени воспроизведения на странице-марионетке при получении обновления от сервера
+    socket.on("timeupdate", (time) => {
+      // Проверяем, не находимся ли мы в режиме перемотки
+      if (!seeking) {
+        // Устанавливаем новое время воспроизведения только если оно отличается от текущего
+        if (Math.abs(videoPlayer.currentTime - time) > 0.01) {
+          // Устанавливаем флаг seeking, чтобы избежать бесконечной рекурсии
+          seeking = true;
+          videoPlayer.currentTime = time;
+          // Снимаем флаг seeking после того, как установили новое время воспроизведения
+          setTimeout(() => {
+            seeking = false;
+          }, 100);
+        }
+      }
+    });
+    
     socket.on("volumeupdate", (volume) => {
       videoPlayer.volume = volume;
     });
@@ -51,13 +67,23 @@
       return match && match[1];
     }
 
-    // Handle receiving video URL from controller page
+    // Обновление текущего времени воспроизведения при перемотке видео
+    videoPlayer.addEventListener("seeking", () => {
+      currentTime = videoPlayer.currentTime;
+    });
+
+    // Обработка нового видео URL от сервера
     socket.on("video url", (url) => {
       console.log("Received video URL:", url);
       const videoId = extractVideoId(url);
       if (videoId) {
         // Set video source to YouTube video
         videoPlayer.src = `/youtube/${videoId}`;
+        // Восстановление времени воспроизведения после загрузки нового видео
+        videoPlayer.addEventListener("loadedmetadata", () => {
+          videoPlayer.currentTime = currentTime;
+          videoPlayer.play(); // Возможно, вам захочется воспроизвести видео после установки времени
+        });
       } else {
         console.error("Invalid video URL:", url);
       }

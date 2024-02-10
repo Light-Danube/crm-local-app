@@ -108,7 +108,7 @@ app.get('/youtube/:videoId', async (req, res) => {
       // Передача потока видео на клиент
       res.header('Content-Disposition', `attachment; filename="${info.videoDetails.title}.mp4"`);
       ytdl(videoURL, {
-         format: 'video/mp4',
+         format: 'mp4',
       }).pipe(res);
    } catch (err) {
       console.error('Error fetching YouTube video:', err);
@@ -140,7 +140,6 @@ io.of("/playerControls").on('connection', (socket) => {
 
    socket.on("player timeupdate", (time) => {
       socket.broadcast.emit("timeupdate", time);
-      console.log("Testing time ${time}", time)
    })
 
    socket.on("player volumeupdate", (volume) => {
