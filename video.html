@@ -78,5 +78,12 @@
         console.error("Invalid video URL:", url);
       }
     });
+
+    // Event listener for receiving the "stop" command
+    socket.on("stop", () => {
+      // Pause the video and reset it to the beginning
+      videoPlayer.pause();
+      videoPlayer.currentTime = 0;
+    });
   </script>
 </html>

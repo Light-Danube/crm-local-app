@@ -41,6 +41,7 @@
       step="0.01"
       value="1"
     />
+    <button id="stopButton">STOP</button>
   </body>
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -51,6 +52,7 @@
     const volumeControl = document.getElementById("volumeControl");
     const youtubeForm = document.getElementById("youtubeForm");
     const youtubeUrlInput = document.getElementById("youtubeUrlInput");
+    const stopButton = document.getElementById("stopButton");
 
 
     // Handle YouTube video streaming form submission
@@ -111,6 +113,14 @@
       const url = URL.createObjectURL(file);
       videoPlayer.src = url;
       console.log(videoPlayer.src);
+    });
+
+    // Event listener for the STOP button
+    stopButton.addEventListener("click", () => {
+      // Stop the video playback on both pages
+      socket.emit("stop");
+      videoPlayer.pause();
+      videoPlayer.currentTime = 0;
     });
 
   </script>

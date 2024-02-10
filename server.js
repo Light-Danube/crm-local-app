@@ -133,6 +133,12 @@ io.of("/playerControls").on('connection', (socket) => {
       socket.broadcast.emit("pause");
    });
 
+   // Обработчик события "stop"
+   socket.on("stop", () => {
+      // Отправить событие "stop" всем клиентам в канале playerControls
+      socket.broadcast.emit("stop");
+   });
+
    //Debug on disconnection
    socket.on("disconnect", () => {
       console.log('A user disconnected from playerControls');
