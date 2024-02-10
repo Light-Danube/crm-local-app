@@ -30,7 +30,7 @@
     </form>
 
     <video id="videoPlayer" width="650" controls muted controlslist="no">
-      <!---<source src="/uploads/test.mp4" type="video/mp4" /> -->
+      <source src="/uploads/test.mp4" type="video/mp4" />
       Your browser does not support the video tag.
     </video>
     <input
@@ -105,10 +105,6 @@
     volumeControl.addEventListener("input", () =>
       socket.emit("player volumeupdate", volumeControl.value)
     );
-
-    //  videoPlayer.addEventListener("timeupdate", () =>
-    //    socket.emit("player timeupdate", videoPlayer.currentTime)
-    //  );
 
     videoFileInput.addEventListener("change", function () {
       const file = this.files[0];

@@ -140,6 +140,7 @@ io.of("/playerControls").on('connection', (socket) => {
 
    socket.on("player timeupdate", (time) => {
       socket.broadcast.emit("timeupdate", time);
+      console.log("Testing time ${time}", time)
    })
 
    socket.on("player volumeupdate", (volume) => {

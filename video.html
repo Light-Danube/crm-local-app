@@ -15,7 +15,7 @@
   </head>
   <body>
     <video id="videoPlayer" style="width: 100%">
-      <!---<source src="/uploads/test.mp4"/> --->
+      <source src="/uploads/test.mp4" type="video/mp4" />
       Your browser does not support the video tag.
     </video>
   </body>
@@ -26,21 +26,19 @@
     const videoPlayer = document.getElementById("videoPlayer");
 
     socket.on("play", () => {
-      console.log("Received play command from server");
+      //console.log("Received play command from server");
       videoPlayer.play();
     });
   
     socket.on("pause", () => {
-      console.log("Received pause command from server");
+      //console.log("Received pause command from server");
       videoPlayer.pause();
     });
 
     // Update the videoPlayer's currentTime when receiving timeupdate from the server
     socket.on("timeupdate", (time) => {
-      // Update the currentTime only if the difference is significant to avoid infinite loop
-      if (Math.abs(videoPlayer.currentTime - time) > 0.1) {
-        videoPlayer.currentTime = time;
-      }
+      videoPlayer.currentTime = time;
+      console.log("Testing time ${time}", time)
     });
 
     socket.on("volumeupdate", (volume) => {
