@@ -26,16 +26,15 @@
       <button type="submit">Stream YouTube Video</button>
     </form>
 
+    <!-- Video player -->
     <video id="videoPlayer" width="650" controls muted>
       <source type="video/mp4" />
-    <input
-      type="range"
-      id="volumeControl"
-      min="0"
-      max="1"
-      step="0.01"
-      value="1"
-    />
+    </video>
+
+    <!-- Volume control -->
+    <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="1" />
+
+    <!-- Stop button -->
     <button id="stopButton">STOP</button>
   </body>
   <script src="/socket.io/socket.io.js"></script>
@@ -109,31 +108,33 @@
     uploadButton.addEventListener("click", function () {
       const file = videoFileInput.files[0];
       if (file) {
-        const formData = new FormData();
-        formData.append("video", file);
-
-        fetch("/upload", {
-          method: "POST",
-          body: formData,
-        })
-          .then((response) => {
-            if (response.ok) {
-              socket.emit("player timeupdate", videoPlayer.currentTime);
-              if (!videoPlayer.paused) {
-                socket.emit("player start", videoPlayer.play());
-              }
-              console.log("Video uploaded successfully!");
-            } else {
-              console.error("Failed to upload video.");
-            }
+          const formData = new FormData();
+          formData.append("video", file);
+  
+          fetch("/upload", {
+              method: "POST",
+              body: formData,
           })
-          .catch((error) => {
-            console.error("Error uploading video:", error);
-          });
+              .then((response) => {
+                  if (response.ok) {
+                      // Emit the uploaded video URL to the puppet page
+                      socket.emit("video uploaded", videoPlayer.src);
+                      if (!videoPlayer.paused) {
+                          socket.emit("player start", videoPlayer.play());
+                      }
+                      console.log("Video uploaded successfully!");
+                  } else {
+                      console.error("Failed to upload video.");
+                  }
+              })
+              .catch((error) => {
+                  console.error("Error uploading video:", error);
+              });
       } else {
-        console.error("No file selected.");
+          console.error("No file selected.");
       }
-    });
+  });
+  
 
     // Функция для обновления видеоплеера
     function updateVideoPlayer(file) {

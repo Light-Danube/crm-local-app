@@ -75,9 +75,10 @@ app.post('/upload', upload.single('video'),  async (req, res) => {
       if (req.file) {
          // If a file is uploaded, emit "file uploaded" event to all clients
          console.log("Video uploaded successfully.");
+         // Emit "file uploaded" event after the redirect
          io.of("/playerControls").emit("file uploaded");
          // Redirect to player.html with the uploaded file
-         res.redirect(`/player.html?video=${req.file.filename}`);
+         res.redirect(`/video.html?video=${req.file.filename}`);
       } else {
          // If no file is uploaded, check for YouTube URL
          const youtubeUrl = req.body.youtubeUrl;
@@ -95,6 +96,18 @@ app.post('/upload', upload.single('video'),  async (req, res) => {
    }
 });
 
+// Serve the video.html file with query parameters
+app.get('/video.html', (req, res) => {
+   // Extract the video parameter from the query string
+   const videoParam = req.query.video;
+   if (videoParam) {
+       // If a video parameter is provided, render the video.html file with that parameter
+       res.sendFile(path.join(__dirname, 'video.html'));
+   } else {
+       // If no video parameter is provided, send a 400 Bad Request response
+       res.status(400).send('No video parameter provided');
+   }
+});
 
 // Статическая директория для доступа к загруженным видео файлам
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -166,6 +179,11 @@ io.of("/playerControls").on('connection', (socket) => {
    socket.on("video url", (url) => {
       // Broadcast the received URL to all clients (including the puppet page)
       socket.broadcast.emit("video url", url);
+   });
+
+   // Handle receiving uploaded video URL from master page and emit it to puppet page
+   socket.on("video uploaded", (url) => {
+      socket.broadcast.emit("video uploaded", url);
    });
 });
 

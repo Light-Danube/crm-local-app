@@ -24,15 +24,14 @@
     const socket = io("/playerControls");
     const videoPlayer = document.getElementById("videoPlayer");
 
-    //Emitting uploaded video
-    socket.on("file uploaded", () => {
-      console.log("File uploaded");
-      // Загрузить новый файл видео
-      videoPlayer.src = "/uploads/test.mp4";
-      // Перезапустить видео, если оно было воспроизведено ранее
-      if (!videoPlayer.paused) {
-        videoPlayer.play();
-      }
+    // Listen for the emitted video name from the master page
+    socket.on("file uploaded", (videoName) => {
+      console.log("Received uploaded video:", videoName);
+      // Load the uploaded video by its name
+      videoPlayer.src = `/uploads/${videoName}`;
+      // Reset the video to the beginning and pause it
+      videoPlayer.currentTime = 0;
+      videoPlayer.pause();
     });
     
     socket.on("play", () => {
@@ -103,6 +102,12 @@
       // Pause the video and reset it to the beginning
       videoPlayer.pause();
       videoPlayer.currentTime = 0;
+    });
+
+    // Listen for the uploaded video URL emitted from the master page
+    socket.on("video uploaded", (url) => {
+      // Load the uploaded video URL on the puppet page
+      videoPlayer.src = url;
     });
   </script>
 </html>
