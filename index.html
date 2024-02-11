@@ -46,11 +46,11 @@
     const videoPlayer = document.getElementById("videoPlayer");
     const volumeControl = document.getElementById("volumeControl");
     const uploadButton = document.getElementById("uploadButton");
-
-    socket.on("file uploaded", () => console.log("file uploaded"));
     const youtubeForm = document.getElementById("youtubeForm");
     const youtubeUrlInput = document.getElementById("youtubeUrlInput");
     const stopButton = document.getElementById("stopButton");
+
+    socket.on("file uploaded", () => console.log("file uploaded"));
 
 
     // Handle YouTube video streaming form submission
