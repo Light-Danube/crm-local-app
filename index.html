@@ -17,12 +17,11 @@
   </head>
   <body>
     <h1>Upload Video</h1>
-    <form action="/upload" method="post" enctype="multipart/form-data">
-      <input type="file" name="video" id="videoFile" accept="video/*" />
-      <button type="submit">Upload</button>
-    </form>
-    <video id="videoPlayer" width="650" controls muted controlslist="no">
-      <source src="/uploads/test.mp4" type="video/mp4" />
+    <input type="file" name="video" id="videoFile" accept="video/*" />
+    <button id="uploadButton">Upload</button>
+    <video id="videoPlayer" width="650" controls muted>
+      <source type="video/mp4" />
+      <!-- src="/uploads/test.mp4" -->
       Your browser does not support the video tag.
     </video>
     <input
@@ -41,6 +40,9 @@
     const videoFileInput = document.getElementById("videoFile");
     const videoPlayer = document.getElementById("videoPlayer");
     const volumeControl = document.getElementById("volumeControl");
+    const uploadButton = document.getElementById("uploadButton");
+
+    socket.on("file uploaded", () => console.log("file uploaded"));
 
     videoPlayer.addEventListener("play", () =>
       socket.emit("player start", videoPlayer.play())
@@ -58,15 +60,54 @@
       socket.emit("player volumeupdate", volumeControl.value)
     );
 
-    //  videoPlayer.addEventListener("timeupdate", () =>
-    //    socket.emit("player timeupdate", videoPlayer.currentTime)
-    //  );
+    uploadButton.addEventListener("click", function () {
+      const file = videoFileInput.files[0];
+      if (file) {
+        const formData = new FormData();
+        formData.append("video", file);
 
-    videoFileInput.addEventListener("change", function () {
-      const file = this.files[0];
+        fetch("/upload", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => {
+            if (response.ok) {
+              socket.emit("player timeupdate", videoPlayer.currentTime);
+              if (!videoPlayer.paused) {
+                socket.emit("player start", videoPlayer.play());
+              }
+              console.log("Video uploaded successfully!");
+            } else {
+              console.error("Failed to upload video.");
+            }
+          })
+          .catch((error) => {
+            console.error("Error uploading video:", error);
+          });
+      } else {
+        console.error("No file selected.");
+      }
+    });
+
+    // Функция для обновления видеоплеера
+    function updateVideoPlayer(file) {
       const url = URL.createObjectURL(file);
       videoPlayer.src = url;
       console.log(videoPlayer.src);
+    }
+
+    // Обработчик события загрузки страницы
+    window.addEventListener("DOMContentLoaded", function () {
+      // Вызываем функцию updateVideoPlayer при загрузке страницы, если есть выбранный файл
+      if (videoFileInput.files[0]) {
+        updateVideoPlayer(videoFileInput.files[0]);
+      }
+    });
+
+    // Добавляем обработчик события change для input type="file"
+    videoFileInput.addEventListener("change", function () {
+      const file = this.files[0];
+      updateVideoPlayer(file);
     });
   </script>
 </html>

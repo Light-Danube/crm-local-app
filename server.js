@@ -60,7 +60,9 @@ app.get('/videofile', (req, res) => {
 });
 
 app.post('/upload', upload.single('video'), (req, res) => {
-   res.redirect('/player.html?video=' + req.file.filename);
+   console.log("Video uploaded successfully.");
+   io.of("/playerControls").emit("file uploaded");
+   res.sendStatus(204);
 });
 
 // Статическая директория для доступа к загруженным видео файлам
@@ -71,7 +73,7 @@ app.get('/youtube/:videoId', async (req, res) => {
    try {
       const videoId = req.params.videoId;
       const videoURL = `https://www.youtube.com/watch?v=${videoId}`;
-      
+
       // Получение информации о видео
       const info = await ytdl.getInfo(videoURL);
 

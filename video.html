@@ -15,7 +15,7 @@
   </head>
   <body>
     <video id="videoPlayer" style="width: 100%">
-      <source src="/uploads/test.mp4"/>
+      <source src="/uploads/test.mp4" />
       Your browser does not support the video tag.
     </video>
   </body>
@@ -25,22 +25,32 @@
     const socket = io("/playerControls");
     const videoPlayer = document.getElementById("videoPlayer");
 
+    socket.on("file uploaded", () => {
+      console.log("File uploaded");
+      // Загрузить новый файл видео
+      videoPlayer.src = "/uploads/test.mp4";
+      // Перезапустить видео, если оно было воспроизведено ранее
+      if (!videoPlayer.paused) {
+        videoPlayer.play();
+      }
+    });
+
     socket.on("play", () => {
       console.log("Received play command from server");
-      console.log("play")
+      console.log("play");
       videoPlayer.play();
     });
-  
+
     socket.on("pause", () => {
       console.log("Received pause command from server");
       videoPlayer.pause();
     });
-  
+
     // Debugging: Log socket connection status
     socket.on("connect", () => {
       console.log("Connected to server");
     });
-  
+
     socket.on("disconnect", () => {
       console.log("Disconnected from server");
     });
