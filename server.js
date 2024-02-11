@@ -37,33 +37,65 @@ app.get('/video', (req, res) => {
    res.sendFile(path.join(__dirname, 'video.html'));
 });
 
-app.get('/videofile', (req, res) => {
+// Serve video files dynamically based on the requested file
+app.get('/videofile/:filename', (req, res) => {
+   const videoPath = path.join(__dirname, 'uploads', req.params.filename);
+   const stat = fs.statSync(videoPath);
+   const fileSize = stat.size;
    const range = req.headers.range;
-   if (!range) {
-      res.status(400).send("Requires Range header");
+
+   if (range) {
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunksize = (end - start) + 1;
+      const file = fs.createReadStream(videoPath, { start, end });
+      const head = {
+         'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+         'Accept-Ranges': 'bytes',
+         'Content-Length': chunksize,
+         'Content-Type': 'video/mp4',
+      };
+
+      res.writeHead(206, head);
+      file.pipe(res);
+   } else {
+      const head = {
+         'Content-Length': fileSize,
+         'Content-Type': 'video/mp4',
+      };
+
+      res.writeHead(200, head);
+      fs.createReadStream(videoPath).pipe(res);
    }
-   const videoPath = "uploads/test.mp4";
-   const videoSize = fs.statSync("uploads/test.mp4").size;
-   const CHUNK_SIZE = 10 ** 6;
-   const start = Number(range.replace(/\D/g, ""));
-   const end = Math.min(start + CHUNK_SIZE, videoSize - 1);
-   const contentLength = end - start + 1;
-   const headers = {
-      "Content-Range": `bytes ${start}-${end}/${videoSize}`,
-      "Accept-Ranges": "bytes",
-      "Content-Length": contentLength,
-      "Content-Type": "video/mp4",
-   };
-   res.writeHead(206, headers);
-   const videoStream = fs.createReadStream(videoPath, { start, end });
-   videoStream.pipe(res);
 });
 
-app.post('/upload', upload.single('video'), (req, res) => {
-   console.log("Video uploaded successfully.");
-   io.of("/playerControls").emit("file uploaded");
-   res.sendStatus(204);
+app.post('/upload', upload.single('video'), async (req, res) => {
+   try {
+      if (req.file) {
+         // If a file is uploaded, emit "file uploaded" event to all clients
+         io.of("/playerControls").emit("file uploaded");
+         console.log("Video uploaded successfully.");
+         // Redirect to player.html with the uploaded file
+         res.redirect(`/player.html?video=${req.file.filename}`);
+         res.sendStatus(204);
+      } else {
+         // If no file is uploaded, check for YouTube URL
+         const youtubeUrl = req.body.youtubeUrl;
+         if (youtubeUrl) {
+            // Redirect to video.html with YouTube URL as parameter
+            res.redirect(`/video.html?video=${youtubeUrl}`);
+         } else {
+            // Handle the case where neither file nor YouTube URL is provided
+            res.status(400).send('No file or YouTube URL provided');
+         }
+      }
+   } catch (err) {
+      console.error('Error uploading:', err);
+      res.status(500).send('Error uploading');
+   }
 });
+
 
 // Статическая директория для доступа к загруженным видео файлам
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -72,6 +104,13 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.get('/youtube/:videoId', async (req, res) => {
    try {
       const videoId = req.params.videoId;
+      
+      // Проверка, что videoId соответствует ожидаемому формату
+      const videoIdRegex = /^[a-zA-Z0-9-_]{11}$/;
+      if (!videoIdRegex.test(videoId)) {
+         throw new Error('Invalid video ID format');
+      }
+
       const videoURL = `https://www.youtube.com/watch?v=${videoId}`;
 
       // Получение информации о видео
@@ -105,6 +144,12 @@ io.of("/playerControls").on('connection', (socket) => {
       socket.broadcast.emit("pause");
    });
 
+   // Обработчик события "stop"
+   socket.on("stop", () => {
+      // Отправить событие "stop" всем клиентам в канале playerControls
+      socket.broadcast.emit("stop");
+   });
+
    //Debug on disconnection
    socket.on("disconnect", () => {
       console.log('A user disconnected from playerControls');
@@ -117,6 +162,12 @@ io.of("/playerControls").on('connection', (socket) => {
    socket.on("player volumeupdate", (volume) => {
       socket.broadcast.emit("volumeupdate", volume);
    })
+
+   // Handle receiving video URL from controller page
+   socket.on("video url", (url) => {
+      // Broadcast the received URL to all clients (including the puppet page)
+      socket.broadcast.emit("video url", url);
+   });
 });
 
 server.listen(PORT, () => {

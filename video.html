@@ -34,15 +34,14 @@
         videoPlayer.play();
       }
     });
-
+    
     socket.on("play", () => {
-      console.log("Received play command from server");
-      console.log("play");
+      //console.log("Received play command from server");
       videoPlayer.play();
     });
 
     socket.on("pause", () => {
-      console.log("Received pause command from server");
+      //console.log("Received pause command from server");
       videoPlayer.pause();
     });
 
@@ -55,12 +54,55 @@
       console.log("Disconnected from server");
     });
 
+    // Update the videoPlayer's currentTime when receiving timeupdate from the server
     socket.on("timeupdate", (time) => {
-      videoPlayer.currentTime = time;
+      // Устанавливаем новое время воспроизведения только если оно отличается от текущего
+      if (Math.abs(videoPlayer.currentTime - time) > 0.01) {
+        videoPlayer.currentTime = time;
+      }
     });
+
+   
 
     socket.on("volumeupdate", (volume) => {
       videoPlayer.volume = volume;
+    });
+
+    // Function to extract video ID from YouTube URL
+    function extractVideoId(url) {
+      const match = url.match(/[?&]v=([^&]+)/);
+      return match && match[1];
+    }
+
+    // Обновление текущего времени воспроизведения при перемотке видео
+    videoPlayer.addEventListener("seeking", () => {
+      currentTime = videoPlayer.currentTime;
+    });
+    
+    let currnetTime = 0;
+
+    // Обработка нового видео URL от сервера
+    socket.on("video url", (url) => {
+      console.log("Received video URL:", url);
+      const videoId = extractVideoId(url);
+      if (videoId) {
+        // Set video source to YouTube video
+        videoPlayer.src = `/youtube/${videoId}`;
+        // Восстановление времени воспроизведения после загрузки нового видео
+        videoPlayer.addEventListener("loadedmetadata", () => {
+          videoPlayer.currentTime = currentTime;
+          videoPlayer.play(); // Возможно, вам захочется воспроизвести видео после установки времени
+        });
+      } else {
+        console.error("Invalid video URL:", url);
+      }
+    });
+
+    // Event listener for receiving the "stop" command
+    socket.on("stop", () => {
+      // Pause the video and reset it to the beginning
+      videoPlayer.pause();
+      videoPlayer.currentTime = 0;
     });
   </script>
 </html>

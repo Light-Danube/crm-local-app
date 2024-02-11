@@ -21,9 +21,16 @@
     <button id="uploadButton">Upload</button>
     <video id="videoPlayer" width="650" controls muted>
       <source type="video/mp4" />
-      <!-- src="/uploads/test.mp4" -->
-      Your browser does not support the video tag.
-    </video>
+    <!-- Form to upload local videos -->
+    <form action="/upload" method="post" enctype="multipart/form-data">
+      <input type="file" name="video" id="videoFile" accept="video/*" />
+      <button type="submit">Upload</button>
+    </form>
+    <!-- Form to stream YouTube videos -->
+    <form id="youtubeForm">
+      <input type="text" id="youtubeUrlInput" placeholder="Enter YouTube URL" />
+      <button type="submit">Stream YouTube Video</button>
+    </form>
     <input
       type="range"
       id="volumeControl"
@@ -32,6 +39,7 @@
       step="0.01"
       value="1"
     />
+    <button id="stopButton">STOP</button>
   </body>
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -43,6 +51,47 @@
     const uploadButton = document.getElementById("uploadButton");
 
     socket.on("file uploaded", () => console.log("file uploaded"));
+    const youtubeForm = document.getElementById("youtubeForm");
+    const youtubeUrlInput = document.getElementById("youtubeUrlInput");
+    const stopButton = document.getElementById("stopButton");
+
+
+    // Handle YouTube video streaming form submission
+    youtubeForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const youtubeUrl = youtubeUrlInput.value;
+
+      try {
+        // Extract video ID from YouTube URL
+        const videoId = extractVideoId(youtubeUrl);
+        // Fetch YouTube video from server
+        const response = await fetch(`/youtube/${videoId}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch YouTube video");
+        }
+        // Set video source
+        videoPlayer.src = URL.createObjectURL(await response.blob());
+        // Play video
+        videoPlayer.play();
+
+        // Send the video URL to the puppet page
+        sendVideoUrl(youtubeUrl);
+      } catch (error) {
+        console.error("Failed to stream YouTube video:", error);
+      }
+    });
+
+    // Function to send video URL to puppet page
+    function sendVideoUrl(url) {
+      socket.emit("video url", url);
+    }
+
+    // Function to extract video ID from YouTube URL
+    function extractVideoId(url) {
+      const match = url.match(/[?&]v=([^&]+)/);
+      return match && match[1];
+    }
+
 
     videoPlayer.addEventListener("play", () =>
       socket.emit("player start", videoPlayer.play())
@@ -91,6 +140,8 @@
 
     // Функция для обновления видеоплеера
     function updateVideoPlayer(file) {
+    videoFileInput.addEventListener("change", function () {
+      const file = this.files[0];
       const url = URL.createObjectURL(file);
       videoPlayer.src = url;
       console.log(videoPlayer.src);
@@ -109,5 +160,14 @@
       const file = this.files[0];
       updateVideoPlayer(file);
     });
+
+    // Event listener for the STOP button
+    stopButton.addEventListener("click", () => {
+      // Stop the video playback on both pages
+      socket.emit("stop");
+      videoPlayer.pause();
+      videoPlayer.currentTime = 0;
+    });
+
   </script>
 </html>
