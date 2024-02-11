@@ -70,30 +70,10 @@ app.get('/videofile/:filename', (req, res) => {
    }
 });
 
-app.post('/upload', upload.single('video'), async (req, res) => {
-   try {
-      if (req.file) {
-         // If a file is uploaded, emit "file uploaded" event to all clients
-         io.of("/playerControls").emit("file uploaded");
-         console.log("Video uploaded successfully.");
-         // Redirect to player.html with the uploaded file
-         res.redirect(`/player.html?video=${req.file.filename}`);
-         res.sendStatus(204);
-      } else {
-         // If no file is uploaded, check for YouTube URL
-         const youtubeUrl = req.body.youtubeUrl;
-         if (youtubeUrl) {
-            // Redirect to video.html with YouTube URL as parameter
-            res.redirect(`/video.html?video=${youtubeUrl}`);
-         } else {
-            // Handle the case where neither file nor YouTube URL is provided
-            res.status(400).send('No file or YouTube URL provided');
-         }
-      }
-   } catch (err) {
-      console.error('Error uploading:', err);
-      res.status(500).send('Error uploading');
-   }
+app.post('/upload', upload.single('video'), (req, res) => {
+   console.log("Video uploaded successfully.");
+   io.of("/playerControls").emit("file uploaded");
+   res.sendStatus(204);
 });
 
 
