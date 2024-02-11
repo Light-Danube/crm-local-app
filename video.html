@@ -15,7 +15,7 @@
   </head>
   <body>
     <video id="videoPlayer" style="width: 100%">
-      <source src="/uploads/test.mp4" type="video/mp4" />
+      <source src="/uploads/test.mp4" />
       Your browser does not support the video tag.
     </video>
   </body>
@@ -25,16 +25,33 @@
     const socket = io("/playerControls");
     const videoPlayer = document.getElementById("videoPlayer");
 
-    let currentTime = 0;
-
+    socket.on("file uploaded", () => {
+      console.log("File uploaded");
+      // Загрузить новый файл видео
+      videoPlayer.src = "/uploads/test.mp4";
+      // Перезапустить видео, если оно было воспроизведено ранее
+      if (!videoPlayer.paused) {
+        videoPlayer.play();
+      }
+    });
+    
     socket.on("play", () => {
       //console.log("Received play command from server");
       videoPlayer.play();
     });
-  
+
     socket.on("pause", () => {
       //console.log("Received pause command from server");
       videoPlayer.pause();
+    });
+
+    // Debugging: Log socket connection status
+    socket.on("connect", () => {
+      console.log("Connected to server");
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Disconnected from server");
     });
 
     // Update the videoPlayer's currentTime when receiving timeupdate from the server
@@ -61,6 +78,8 @@
     videoPlayer.addEventListener("seeking", () => {
       currentTime = videoPlayer.currentTime;
     });
+    
+    let currnetTime = 0;
 
     // Обработка нового видео URL от сервера
     socket.on("video url", (url) => {
