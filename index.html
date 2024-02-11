@@ -137,12 +137,9 @@
 
     // Функция для обновления видеоплеера
     function updateVideoPlayer(file) {
-      videoFileInput.addEventListener("change", function () {
-        const file = this.files[0];
-        const url = URL.createObjectURL(file);
-        videoPlayer.src = url;
-        console.log(videoPlayer.src);
-      })
+      const url = URL.createObjectURL(file);
+      videoPlayer.src = url;
+      console.log(videoPlayer.src);
     }
 
     // Обработчик события загрузки страницы
