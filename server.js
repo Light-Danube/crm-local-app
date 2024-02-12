@@ -144,7 +144,6 @@ app.get('/youtube/:videoId', async (req, res) => {
 
 let isVideoInverted = false;
 let isColorOptimized = false;
-let isEnhanceDetails = false;
 
 // Обработчик подключения к каналу playerControls
 io.of("/playerControls").on('connection', (socket) => {
@@ -211,6 +210,12 @@ io.of("/playerControls").on('connection', (socket) => {
       // Emit the enhance details status to all clients (including puppet page)
       socket.broadcast.emit("enhance details status", isChecked);
   });
+
+  //Handle video "background":
+  socket.on("toggle background details", (isChecked) => {
+   // Emit the enhance details status to all clients (including puppet page)
+   socket.broadcast.emit("background optimization status", isChecked);
+});
 });
 
 server.listen(PORT, () => {

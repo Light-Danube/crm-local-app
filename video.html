@@ -26,6 +26,7 @@
 
     let optimizeColorChecked = false;
     let enhanceDetailsChecked = false;
+    let backgroundOptChecked = false;
     let currentTime = 0;
 
     // Listen for the emitted video name from the master page
@@ -133,6 +134,11 @@
         applyFilters();
     });
 
+    socket.on("background optimization status", (isEnhanced) => {
+      backgroundOptChecked = isEnhanced;
+      applyFilters();
+    });
+
     function applyFilters() {
         let filters = "";
 
@@ -144,8 +150,32 @@
             filters += " brightness(110%) blur(1px)";
         }
 
-        const videoPlayer = document.getElementById("videoPlayer");
+        if (backgroundOptChecked) {
+          // Apply filters for optimizing background
+          filters += " " + optimizeBackgroundEffects();
+        }
+
         videoPlayer.style.filter = filters || "none";
+    }
+
+    // Function to apply background optimization effects
+    function optimizeBackgroundEffects() {
+      let backgroundFilters = "";
+
+      // Apply the specified background optimization effects
+      // Avoid using black color (except for background and cutout elements)
+      backgroundFilters += " opacity(0%);";
+
+      // Adjust shadows to warmer colors
+      backgroundFilters += " drop-shadow(0 0 10px rgba(255, 165, 0, 0.5));";
+
+      // Increase saturation for semi-transparent elements
+      backgroundFilters += " saturate(150%);";
+
+      // Replace white shadows with yellow
+      backgroundFilters += " drop-shadow(0 0 10px rgba(255, 255, 0, 0.5));";
+
+      return backgroundFilters;
     }
   </script>
 </html>

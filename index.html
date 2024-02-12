@@ -44,11 +44,15 @@
     <label for="optimizeButton">Optimize Video</label>
     <input type="checkbox" id="optimizeButton">
 
+    
+    <label for="enhanceDetailsCheckbox">Enhance Details</label>
+    <input type="checkbox" id="enhanceDetailsCheckbox">
+
     <label for="optimizeColorButton">Optimize Color</label>
     <input type="checkbox" id="optimizeColorButton">
 
-    <label for="enhanceDetailsCheckbox">Enhance Details</label>
-    <input type="checkbox" id="enhanceDetailsCheckbox">
+    <label for="optimizeBackground">Optimize Background</label>
+    <input type="checkbox" id="optimizeBackground">
   </body>
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -64,8 +68,9 @@
 
     //Video Additional Effects:
     const toggleInversionCheckbox = document.getElementById("optimizeButton");
-    const optimizeColorButton = document.getElementById("optimizeColorButton");
     const enhanceDetailsCheckbox = document.getElementById("enhanceDetailsCheckbox");
+    const optimizeColorButton = document.getElementById("optimizeColorButton");
+    const optimizeBackgroundCheckbox = document.getElementById("optimizeBackground");
 
 
     socket.on("file uploaded", () => console.log("file uploaded"));
@@ -73,6 +78,7 @@
     let loopEnabled = false;
     let optimizeColorChecked = false;
     let enhanceDetailsChecked = false;
+    let backgroundOptimizeChecked = false;
 
     // Function to toggle loop feature
     toggleLoopButton.addEventListener('click', () => {
@@ -228,7 +234,17 @@
         applyFilters();
     });
 
-    // Function to apply filters based on the state of both checkboxes
+    // Event listener for the "optimizeBackground" checkbox
+    optimizeBackgroundCheckbox.addEventListener("change", () => {
+      // Emit the enhance details event to the server along with the checkbox state
+      socket.emit("toggle background details", optimizeBackgroundCheckbox.checked);
+      // Update the state of the "Enhance Details" checkbox
+      optimizeBackgroundChecked = optimizeBackgroundCheckbox.checked;
+      // Apply filters based on the state of both checkboxes
+      applyFilters();
+    });
+
+    // Function to apply filters based on the state of filter checkboxes
     function applyFilters() {
       let filters = "";
 
@@ -243,8 +259,33 @@
           filters += " brightness(110%) blur(1px)";
       }
 
+      if (optimizeBackgroundChecked) {
+        // Apply filters for optimizing background
+        filters += " " + optimizeBackgroundEffects();
+      }
+
       // Set the combined filters to the video player
       videoPlayer.style.filter = filters || "none";
+    }
+
+    // Function to apply background optimization effects
+    function optimizeBackgroundEffects() {
+      let backgroundFilters = "";
+
+      // Apply the specified background optimization effects
+      // Avoid using black color (except for background and cutout elements)
+      backgroundFilters += " opacity(0%);";
+
+      // Adjust shadows to warmer colors
+      backgroundFilters += " drop-shadow(0 0 10px rgba(255, 165, 0, 0.5));";
+
+      // Increase saturation for semi-transparent elements
+      backgroundFilters += " saturate(150%);";
+
+      // Replace white shadows with yellow
+      backgroundFilters += " drop-shadow(0 0 10px rgba(255, 255, 0, 0.5));";
+
+      return backgroundFilters;
     }
 
     // Initial call to apply filters based on the initial state of checkboxes
