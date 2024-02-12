@@ -142,6 +142,10 @@ app.get('/youtube/:videoId', async (req, res) => {
    }
 });
 
+let isVideoInverted = false;
+let isColorOptimized = false;
+let isEnhanceDetails = false;
+
 // Обработчик подключения к каналу playerControls
 io.of("/playerControls").on('connection', (socket) => {
    console.log('a user connected to playerControls');
@@ -188,6 +192,25 @@ io.of("/playerControls").on('connection', (socket) => {
    socket.on("video uploaded", (url) => {
       socket.broadcast.emit("video uploaded", url);
    });
+
+   //VIDEO PARAMETERS:
+   //Inversion:
+   socket.on("toggle inversion", () => {
+      isVideoInverted = !isVideoInverted;
+      socket.broadcast.emit("inversion status", isVideoInverted);
+   });
+
+   // Handle color optimization button click
+   socket.on("optimize color", () => {
+      isColorOptimized = !isColorOptimized;
+      socket.broadcast.emit("color optimization status", isColorOptimized);
+   });
+
+   //Handle video "enhancements":
+   socket.on("toggle enhance details", (isChecked) => {
+      // Emit the enhance details status to all clients (including puppet page)
+      socket.broadcast.emit("enhance details status", isChecked);
+  });
 });
 
 server.listen(PORT, () => {

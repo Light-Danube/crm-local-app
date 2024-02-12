@@ -109,5 +109,70 @@
       // Load the uploaded video URL on the puppet page
       videoPlayer.src = url;
     });
+
+    //VIDEO PARAMETERS:
+    //Inversion:
+    socket.on("inversion status", (isInverted) => {
+      if (isInverted) {
+        videoPlayer.style.transform = "scaleX(-1) translateX(1%)";
+      } else {
+        videoPlayer.style.transform = "scaleX(1) translateX(0)";
+      }
+    });
+
+    // Socket event listener to handle color optimization status from the server
+    let isColorOptimized = false;
+    let isEnhanced = false;
+
+    // Socket event listener to handle color optimization status from the server
+    socket.on("color optimization status", (isColorOptimizedFromServer) => {
+        isColorOptimized = isColorOptimizedFromServer;
+        applyFilters();
+    });
+
+    // Socket event listener to handle enhance details status from the server
+    socket.on("enhance details status", (isEnhancedFromServer) => {
+        isEnhanced = isEnhancedFromServer;
+        applyFilters();
+    });
+
+    // Function to apply the appropriate filters based on the current checkbox states
+    function applyFilters() {
+        // Apply color optimization filters only if the checkbox is checked
+        if (isColorOptimized) {
+            videoPlayer.style.filter = "contrast(130%) saturate(130%)";
+        } else {
+            videoPlayer.style.filter = "none";
+        }
+
+        // Apply enhance details filters only if the checkbox is checked
+        if (isEnhanced) {
+            // Apply the specified enhancements
+            applyEnhancements();
+        } else {
+            // Reset to default
+            resetEnhancements();
+        }
+    }
+
+    // Function to apply the enhance details effect
+    function applyEnhancements() {
+        // Apply detail enhancement (50% increase)
+        // Increase sharpness using the 'brightness' filter
+        // Adjust as needed based on your specific requirements
+        videoPlayer.style.filter += " brightness(110%)";
+
+        // Increase clarity using the 'blur' filter
+        // Adjust the blur radius to control the level of clarity enhancement
+        videoPlayer.style.filter += " blur(1px)";
+    }
+
+    // Function to reset the enhancements to default
+    function resetEnhancements() {
+        // Reset all applied enhancements to default values
+        videoPlayer.style.filter = videoPlayer.style.filter.replace(/brightness\(110%\)/g, "").replace(/blur\(1px\)/g, "");
+    }
+
+
   </script>
 </html>

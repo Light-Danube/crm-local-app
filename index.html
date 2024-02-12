@@ -39,6 +39,16 @@
 
     <!-- Endlessly Loop Video button-->
     <button id="toggleLoopButton">Toggle Loop</button>
+
+    <!-- VIDEO EFFECTS BUTTONS:-->
+    <label for="optimizeButton">Optimize Video</label>
+    <input type="checkbox" id="optimizeButton">
+
+    <label for="optimizeColorButton">Optimize Color</label>
+    <input type="checkbox" id="optimizeColorButton">
+
+    <label for="enhanceDetailsCheckbox">Enhance Details</label>
+    <input type="checkbox" id="enhanceDetailsCheckbox">
   </body>
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -51,6 +61,11 @@
     const youtubeForm = document.getElementById("youtubeForm");
     const youtubeUrlInput = document.getElementById("youtubeUrlInput");
     const stopButton = document.getElementById("stopButton");
+
+    //Video Additional Effects:
+    const toggleInversionCheckbox = document.getElementById("optimizeButton");
+    const optimizeColorButton = document.getElementById("optimizeColorButton");
+    const enhanceDetailsCheckbox = document.getElementById("enhanceDetailsCheckbox");
 
 
     socket.on("file uploaded", () => console.log("file uploaded"));
@@ -177,5 +192,68 @@
       videoPlayer.currentTime = 0;
     });
 
+
+    //VIDEO PARAMETERS:
+    //Inversion:
+    // Toggle inversion checkbox event listener
+    toggleInversionCheckbox.addEventListener("change", () => {
+      // Emit the inversion status to the server
+      socket.emit("toggle inversion");
+      // Apply the inversion effect locally on the master page
+      if (toggleInversionCheckbox.checked) {
+        videoPlayer.style.transform = "scaleX(-1) translateX(1%)";
+      } else {
+        videoPlayer.style.transform = "scaleX(1) translateX(0)";
+      }
+    });
+
+    let isEnhanceDetailsChecked = false;
+
+    optimizeColorButton.addEventListener("change", () => {
+        // Emit the optimize color event to the server
+        socket.emit("optimize color");
+
+        if (!optimizeColorButton.checked) {
+            // Apply enhance details filters if the checkbox is checked
+            if (isEnhanceDetailsChecked) {
+                applyEnhancements();
+            } else {
+                videoPlayer.style.filter = "none";
+            }
+        } else {
+            // Apply color optimization filters
+            videoPlayer.style.filter = "contrast(130%) saturate(130%)";
+        }
+    });
+
+    enhanceDetailsCheckbox.addEventListener("change", () => {
+        // Update the isEnhanceDetailsChecked variable
+        isEnhanceDetailsChecked = enhanceDetailsCheckbox.checked;
+
+        // Emit the enhance details event to the server along with the checkbox state
+        socket.emit("toggle enhance details", isEnhanceDetailsChecked);
+
+        // Apply the specified enhancements only if the optimize color checkbox is not checked
+        if (!optimizeColorButton.checked) {
+            if (isEnhanceDetailsChecked) {
+                applyEnhancements();
+            } else {
+                videoPlayer.style.filter = "none";
+            }
+        }
+    });
+
+    // Function to apply the enhance details effect
+    function applyEnhancements() {
+
+      // Apply detail enhancement (50% increase)
+      // Increase sharpness using the 'brightness' filter
+      // Adjust as needed based on your specific requirements
+      videoPlayer.style.filter += " brightness(110%)";
+
+      // Increase clarity using the 'blur' filter
+      // Adjust the blur radius to control the level of clarity enhancement
+      videoPlayer.style.filter += " blur(1px)";
+    }
   </script>
 </html>
