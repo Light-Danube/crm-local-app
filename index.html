@@ -237,9 +237,10 @@
     // Event listener for the "optimizeBackground" checkbox
     optimizeBackgroundCheckbox.addEventListener("change", () => {
       // Emit the enhance details event to the server along with the checkbox state
+      console.log("Background status change")
       socket.emit("toggle background details", optimizeBackgroundCheckbox.checked);
       // Update the state of the "Enhance Details" checkbox
-      optimizeBackgroundChecked = optimizeBackgroundCheckbox.checked;
+      backgroundOptimizeChecked = optimizeBackgroundCheckbox.checked;
       // Apply filters based on the state of both checkboxes
       applyFilters();
     });
@@ -259,9 +260,10 @@
           filters += " brightness(110%) blur(1px)";
       }
 
-      if (optimizeBackgroundChecked) {
+      if (backgroundOptimizeChecked) {
         // Apply filters for optimizing background
         filters += " " + optimizeBackgroundEffects();
+        console.log("Background status effects")
       }
 
       // Set the combined filters to the video player
@@ -284,6 +286,8 @@
 
       // Replace white shadows with yellow
       backgroundFilters += " drop-shadow(0 0 10px rgba(255, 255, 0, 0.5));";
+
+      console.log("Background status effects added")
 
       return backgroundFilters;
     }
