@@ -36,6 +36,9 @@
 
     <!-- Stop button -->
     <button id="stopButton">STOP</button>
+
+    <!-- Endlessly Loop Video button-->
+    <button id="toggleLoopButton">Toggle Loop</button>
   </body>
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -49,7 +52,15 @@
     const youtubeUrlInput = document.getElementById("youtubeUrlInput");
     const stopButton = document.getElementById("stopButton");
 
+    let loopEnabled = false;
+
     socket.on("file uploaded", () => console.log("file uploaded"));
+
+    // Function to toggle loop feature
+    toggleLoopButton.addEventListener('click', () => {
+      loopEnabled = !loopEnabled;
+      videoPlayer.loop = loopEnabled;
+    });
 
 
     // Handle YouTube video streaming form submission
