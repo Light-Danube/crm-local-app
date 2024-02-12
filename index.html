@@ -52,9 +52,10 @@
     const youtubeUrlInput = document.getElementById("youtubeUrlInput");
     const stopButton = document.getElementById("stopButton");
 
-    let loopEnabled = false;
 
     socket.on("file uploaded", () => console.log("file uploaded"));
+
+    let loopEnabled = false;
 
     // Function to toggle loop feature
     toggleLoopButton.addEventListener('click', () => {

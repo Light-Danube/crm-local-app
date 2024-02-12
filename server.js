@@ -15,6 +15,22 @@ const PORT = 3000;
 
 app.use(cors());
 
+// Serve React frontend
+app.use(express.static(path.join(__dirname, 'client/build')));
+
+// Serve the video.html file with query parameters
+app.get('/video.html', (req, res) => {
+   // Extract the video parameter from the query string
+   const videoParam = req.query.video;
+   if (videoParam) {
+       // If a video parameter is provided, render the video.html file with that parameter
+       res.sendFile(path.join(__dirname, 'video.html'));
+   } else {
+       // If no video parameter is provided, send a 400 Bad Request response
+       res.status(400).send('No video parameter provided');
+   }
+});
+
 // Настройка папки для загрузки видео файлов
 const storage = multer.diskStorage({
    destination: function (req, file, cb) {
@@ -93,19 +109,6 @@ app.post('/upload', upload.single('video'),  async (req, res) => {
    } catch (err) {
       console.error('Error uploading:', err);
       res.status(500).send('Error uploading');
-   }
-});
-
-// Serve the video.html file with query parameters
-app.get('/video.html', (req, res) => {
-   // Extract the video parameter from the query string
-   const videoParam = req.query.video;
-   if (videoParam) {
-       // If a video parameter is provided, render the video.html file with that parameter
-       res.sendFile(path.join(__dirname, 'video.html'));
-   } else {
-       // If no video parameter is provided, send a 400 Bad Request response
-       res.status(400).send('No video parameter provided');
    }
 });
 
