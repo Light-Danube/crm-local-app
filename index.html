@@ -71,6 +71,8 @@
     socket.on("file uploaded", () => console.log("file uploaded"));
 
     let loopEnabled = false;
+    let optimizeColorChecked = false;
+    let enhanceDetailsChecked = false;
 
     // Function to toggle loop feature
     toggleLoopButton.addEventListener('click', () => {
@@ -195,7 +197,7 @@
 
     //VIDEO PARAMETERS:
     //Inversion:
-    // Toggle inversion checkbox event listener
+    //Toggle inversion checkbox event listener
     toggleInversionCheckbox.addEventListener("change", () => {
       // Emit the inversion status to the server
       socket.emit("toggle inversion");
@@ -207,53 +209,46 @@
       }
     });
 
-    let isEnhanceDetailsChecked = false;
-
+    // Event listener for the "Optimize Color" checkbox
     optimizeColorButton.addEventListener("change", () => {
-        // Emit the optimize color event to the server
         socket.emit("optimize color");
-
-        if (!optimizeColorButton.checked) {
-            // Apply enhance details filters if the checkbox is checked
-            if (isEnhanceDetailsChecked) {
-                applyEnhancements();
-            } else {
-                videoPlayer.style.filter = "none";
-            }
-        } else {
-            // Apply color optimization filters
-            videoPlayer.style.filter = "contrast(130%) saturate(130%)";
-        }
+        // Update the state of the "Optimize Color" checkbox
+        optimizeColorChecked = optimizeColorButton.checked;
+        // Apply filters based on the state of both checkboxes
+        applyFilters();
     });
 
+    // Event listener for the "Enhance Details" checkbox
     enhanceDetailsCheckbox.addEventListener("change", () => {
-        // Update the isEnhanceDetailsChecked variable
-        isEnhanceDetailsChecked = enhanceDetailsCheckbox.checked;
-
         // Emit the enhance details event to the server along with the checkbox state
-        socket.emit("toggle enhance details", isEnhanceDetailsChecked);
-
-        // Apply the specified enhancements only if the optimize color checkbox is not checked
-        if (!optimizeColorButton.checked) {
-            if (isEnhanceDetailsChecked) {
-                applyEnhancements();
-            } else {
-                videoPlayer.style.filter = "none";
-            }
-        }
+        socket.emit("toggle enhance details", enhanceDetailsCheckbox.checked);
+        // Update the state of the "Enhance Details" checkbox
+        enhanceDetailsChecked = enhanceDetailsCheckbox.checked;
+        // Apply filters based on the state of both checkboxes
+        applyFilters();
     });
 
-    // Function to apply the enhance details effect
-    function applyEnhancements() {
+    // Function to apply filters based on the state of both checkboxes
+    function applyFilters() {
+      let filters = "";
 
-      // Apply detail enhancement (50% increase)
-      // Increase sharpness using the 'brightness' filter
-      // Adjust as needed based on your specific requirements
-      videoPlayer.style.filter += " brightness(110%)";
+      if (optimizeColorChecked) {
+          // Apply filters for optimizing color
+          filters += " contrast(130%) saturate(130%)";
+      }
 
-      // Increase clarity using the 'blur' filter
-      // Adjust the blur radius to control the level of clarity enhancement
-      videoPlayer.style.filter += " blur(1px)";
+      if (enhanceDetailsChecked) {
+          // Apply filters for enhancing details
+          // Adjust as needed based on your specific enhancements
+          filters += " brightness(110%) blur(1px)";
+      }
+
+      // Set the combined filters to the video player
+      videoPlayer.style.filter = filters || "none";
     }
+
+    // Initial call to apply filters based on the initial state of checkboxes
+    applyFilters();
+
   </script>
 </html>

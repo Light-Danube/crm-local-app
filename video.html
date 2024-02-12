@@ -24,6 +24,10 @@
     const socket = io("/playerControls");
     const videoPlayer = document.getElementById("videoPlayer");
 
+    let optimizeColorChecked = false;
+    let enhanceDetailsChecked = false;
+    let currentTime = 0;
+
     // Listen for the emitted video name from the master page
     socket.on("file uploaded", (videoName) => {
       console.log("Received uploaded video:", videoName);
@@ -78,7 +82,6 @@
       currentTime = videoPlayer.currentTime;
     });
     
-    let currnetTime = 0;
 
     // Обработка нового видео URL от сервера
     socket.on("video url", (url) => {
@@ -120,59 +123,29 @@
       }
     });
 
-    // Socket event listener to handle color optimization status from the server
-    let isColorOptimized = false;
-    let isEnhanced = false;
+    socket.on("color optimization status", (isColorOptimized) => {
+      optimizeColorChecked = isColorOptimized;
+      applyFilters();
+    });
 
-    // Socket event listener to handle color optimization status from the server
-    socket.on("color optimization status", (isColorOptimizedFromServer) => {
-        isColorOptimized = isColorOptimizedFromServer;
+    socket.on("enhance details status", (isEnhanced) => {
+        enhanceDetailsChecked = isEnhanced;
         applyFilters();
     });
 
-    // Socket event listener to handle enhance details status from the server
-    socket.on("enhance details status", (isEnhancedFromServer) => {
-        isEnhanced = isEnhancedFromServer;
-        applyFilters();
-    });
-
-    // Function to apply the appropriate filters based on the current checkbox states
     function applyFilters() {
-        // Apply color optimization filters only if the checkbox is checked
-        if (isColorOptimized) {
-            videoPlayer.style.filter = "contrast(130%) saturate(130%)";
-        } else {
-            videoPlayer.style.filter = "none";
+        let filters = "";
+
+        if (optimizeColorChecked) {
+            filters += " contrast(130%) saturate(130%)";
         }
 
-        // Apply enhance details filters only if the checkbox is checked
-        if (isEnhanced) {
-            // Apply the specified enhancements
-            applyEnhancements();
-        } else {
-            // Reset to default
-            resetEnhancements();
+        if (enhanceDetailsChecked) {
+            filters += " brightness(110%) blur(1px)";
         }
+
+        const videoPlayer = document.getElementById("videoPlayer");
+        videoPlayer.style.filter = filters || "none";
     }
-
-    // Function to apply the enhance details effect
-    function applyEnhancements() {
-        // Apply detail enhancement (50% increase)
-        // Increase sharpness using the 'brightness' filter
-        // Adjust as needed based on your specific requirements
-        videoPlayer.style.filter += " brightness(110%)";
-
-        // Increase clarity using the 'blur' filter
-        // Adjust the blur radius to control the level of clarity enhancement
-        videoPlayer.style.filter += " blur(1px)";
-    }
-
-    // Function to reset the enhancements to default
-    function resetEnhancements() {
-        // Reset all applied enhancements to default values
-        videoPlayer.style.filter = videoPlayer.style.filter.replace(/brightness\(110%\)/g, "").replace(/blur\(1px\)/g, "");
-    }
-
-
   </script>
 </html>
