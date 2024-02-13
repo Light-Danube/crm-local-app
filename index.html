@@ -13,6 +13,43 @@
         max-width: 650px;
         background-color: #444;
       }
+
+      /* Styles for the modal */
+      .modal {
+          display: none;
+          position: fixed;
+          z-index: 1;
+          left: 0;
+          top: 0;
+          width: 100%;
+          height: 100%;
+          overflow: auto;
+          background-color: rgba(0, 0, 0, 0.5);
+      }
+        
+      /* Modal content */
+      .modal-content {
+          background-color: #fefefe;
+          margin: 15% auto;
+          padding: 20px;
+          border: 1px solid #888;
+          width: 80%;
+      }
+        
+      /* Close button */
+      .close {
+          color: #aaa;
+          float: right;
+          font-size: 28px;
+          font-weight: bold;
+      }
+        
+      .close:hover,
+      .close:focus {
+          color: black;
+          text-decoration: none;
+          cursor: pointer;
+      }
     </style>
   </head>
   <body>
@@ -53,6 +90,23 @@
 
     <label for="optimizeBackground">Optimize Background</label>
     <input type="checkbox" id="optimizeBackground">
+
+    <!-- Modal -->
+    <button id="infoButton">Information</button>
+
+    <!-- Modal -->
+    <div id="infoModal" class="modal">
+        <!-- Modal content -->
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Video Controls Information</h2>
+            <p><strong>Start Button:</strong> Starts playback of the video.</p>
+            <p><strong>Optimize Color Button:</strong> Enhances the color contrast and saturation of the video.</p>
+            <p><strong>Enhance Details Checkbox:</strong> Enhances the sharpness and clarity of the video.</p>
+            <p><strong>Inverse Video:</strong> Inverses content in video by horizontally.</p>
+            <p><strong>Optimize Background:</strong> Enhances background, affecting specific background colors and color tones.</p>
+        </div>
+    </div>
   </body>
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -71,6 +125,11 @@
     const enhanceDetailsCheckbox = document.getElementById("enhanceDetailsCheckbox");
     const optimizeColorButton = document.getElementById("optimizeColorButton");
     const optimizeBackgroundCheckbox = document.getElementById("optimizeBackground");
+
+    // Get the modal and buttons
+    const modal = document.getElementById("infoModal");
+    const infoButton = document.getElementById("infoButton");
+    const closeButton = document.getElementsByClassName("close")[0];
 
 
     socket.on("file uploaded", () => console.log("file uploaded"));
@@ -234,16 +293,6 @@
         applyFilters();
     });
 
-    // Event listener for the "optimizeBackground" checkbox
-    optimizeBackgroundCheckbox.addEventListener("change", () => {
-      // Emit the enhance details event to the server along with the checkbox state
-      socket.emit("toggle background details", optimizeBackgroundCheckbox.checked);
-      // Update the state of the "Enhance Details" checkbox
-      backgroundOptimizeChecked = optimizeBackgroundCheckbox.checked;
-      // Apply filters based on the state of both checkboxes
-      applyFilters();
-    });
-
     // Function to apply filters based on the state of filter checkboxes
     function applyFilters() {
       let filters = "";
@@ -259,112 +308,27 @@
           filters += " brightness(110%) blur(1px)";
       }
 
-      if (backgroundOptimizeChecked) {
-        // Apply filters for enhancing details
-        // Adjust as needed based on your specific enhancements
-        analyzeVideoFrames(videoPlayer);
-      }
       // Set the combined filters to the video player
       videoPlayer.style.filter = filters || "none";
     }
 
-    // Function to analyze video frames and adjust opacity for black and white colors
-    async function analyzeVideoFrames(video) {
-      const canvas = document.createElement("canvas");
-      const context = canvas.getContext("2d");
-      const width = video.videoWidth;
-      const height = video.videoHeight;
-
-      // Set canvas dimensions to match video
-      canvas.width = width;
-      canvas.height = height;
-
-      // Interval for processing video frames
-      const frameInterval = 1000 / video.playbackRate;
-
-      // Function to process a single video frame
-      async function processFrame() {
-        // Draw current frame onto canvas
-        context.drawImage(video, 0, 0, width, height);
-
-        // Get pixel data
-        let imageData;
-        try {
-          imageData = await createImageBitmap(canvas);
-        } catch (error) {
-          console.error("Error creating image bitmap:", error);
-          return;
-        }
-
-        // Ensure imageData is not null or undefined
-        if (!imageData) {
-            console.error("Failed to retrieve image data.");
-            return;
-        }
-
-        // Loop through pixels and adjust opacity for black and white colors
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                // Check if pixel color is black or white
-                const { r, g, b, a } = getPixel(imageData, x, y);
-                if (isBlackOrWhite(r, g, b)) {
-                    // Set opacity to 0% for black and white pixels
-                    setPixel(imageData, x, y, { r, g, b, a: 0 });
-                }
-            }
-        }
-
-        // Update canvas with modified pixel data
-        context.putImageData(imageData, 0, 0);
-
-        // Draw modified canvas back to video element
-        video.srcObject = canvas.captureStream();
-
-        // Check if video has ended
-        if (!video.ended) {
-            // Schedule processing of the next frame
-            setTimeout(processFrame, frameInterval);
-        }
-      }
-
-      // Start processing the first frame
-      processFrame();
-    }
-
-
-    // Function to extract pixel color information from image data
-    function getPixel(imageData, x, y) {
-      const index = (y * imageData.width + x) * 4;
-      return {
-          r: imageData.data[index],
-          g: imageData.data[index + 1],
-          b: imageData.data[index + 2],
-          a: imageData.data[index + 3]
-      };
-    }
-
-    // Function to set pixel color information in image data
-    function setPixel(imageData, x, y, { r, g, b, a }) {
-      const index = (y * imageData.width + x) * 4;
-      imageData.data[index] = r;
-      imageData.data[index + 1] = g;
-      imageData.data[index + 2] = b;
-      imageData.data[index + 3] = a;
-    }
-
-    // Function to check if a color is black or white
-    function isBlackOrWhite(r, g, b) {
-      // Define threshold for black and white colors
-      const threshold = 30;
-
-      // Calculate grayscale value
-      const gray = (r + g + b) / 3;
-
-      // Check if grayscale value is close to 0 (black) or 255 (white)
-      return (gray < threshold || gray > 255 - threshold);
-    }
-
     // Initial call to apply filters based on the initial state of checkboxes
     applyFilters();
+
+    // Event listener for clicking the info button
+    infoButton.addEventListener("click", () => {
+        modal.style.display = "block";
+    });
+
+    // Event listener for clicking the close button or outside the modal
+    closeButton.addEventListener("click", () => {
+        modal.style.display = "none";
+    });
+
+    window.addEventListener("click", (event) => {
+        if (event.target === modal) {
+            modal.style.display = "none";
+        }
+    });
   </script>
 </html>
