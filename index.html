@@ -238,7 +238,10 @@
     optimizeBackgroundCheckbox.addEventListener("change", () => {
       // Emit the enhance details event to the server along with the checkbox state
       socket.emit("toggle background details", optimizeBackgroundCheckbox.checked);
-      applyBackgroundOptimization(optimizeBackgroundCheckbox.checked);
+      // Update the state of the "Enhance Details" checkbox
+      backgroundOptimizeChecked = optimizeBackgroundCheckbox.checked;
+      // Apply filters based on the state of both checkboxes
+      applyFilters();
     });
 
     // Function to apply filters based on the state of filter checkboxes
@@ -255,31 +258,113 @@
           // Adjust as needed based on your specific enhancements
           filters += " brightness(110%) blur(1px)";
       }
+
+      if (backgroundOptimizeChecked) {
+        // Apply filters for enhancing details
+        // Adjust as needed based on your specific enhancements
+        analyzeVideoFrames(videoPlayer);
+      }
       // Set the combined filters to the video player
       videoPlayer.style.filter = filters || "none";
     }
 
-    // Socket event listener to handle background optimization status from the server
-    socket.on("background optimization status", (isChecked) => {
-      // Apply or remove background optimization effects based on checkbox state
-      applyBackgroundOptimization(isChecked);
-    });
+    // Function to analyze video frames and adjust opacity for black and white colors
+    async function analyzeVideoFrames(video) {
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      const width = video.videoWidth;
+      const height = video.videoHeight;
 
-    // Function to apply or remove background optimization effects
-    function applyBackgroundOptimization(isChecked) {
-      if (isChecked) {
-          // Apply background optimization effects
-          console.log("Added be effects")
-          videoPlayer.classList.add("black-transparency", "white-transparency", "non-background-white", "warm-shadow", "saturated-element", "yellow-shadow");
-      } else {
-          // Remove background optimization effects
-          console.log("Removed be effects")
-          videoPlayer.classList.remove("black-transparency", "white-transparency", "non-background-white", "warm-shadow", "saturated-element", "yellow-shadow");
+      // Set canvas dimensions to match video
+      canvas.width = width;
+      canvas.height = height;
+
+      // Interval for processing video frames
+      const frameInterval = 1000 / video.playbackRate;
+
+      // Function to process a single video frame
+      async function processFrame() {
+        // Draw current frame onto canvas
+        context.drawImage(video, 0, 0, width, height);
+
+        // Get pixel data
+        let imageData;
+        try {
+          imageData = await createImageBitmap(canvas);
+        } catch (error) {
+          console.error("Error creating image bitmap:", error);
+          return;
+        }
+
+        // Ensure imageData is not null or undefined
+        if (!imageData) {
+            console.error("Failed to retrieve image data.");
+            return;
+        }
+
+        // Loop through pixels and adjust opacity for black and white colors
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                // Check if pixel color is black or white
+                const { r, g, b, a } = getPixel(imageData, x, y);
+                if (isBlackOrWhite(r, g, b)) {
+                    // Set opacity to 0% for black and white pixels
+                    setPixel(imageData, x, y, { r, g, b, a: 0 });
+                }
+            }
+        }
+
+        // Update canvas with modified pixel data
+        context.putImageData(imageData, 0, 0);
+
+        // Draw modified canvas back to video element
+        video.srcObject = canvas.captureStream();
+
+        // Check if video has ended
+        if (!video.ended) {
+            // Schedule processing of the next frame
+            setTimeout(processFrame, frameInterval);
+        }
       }
+
+      // Start processing the first frame
+      processFrame();
+    }
+
+
+    // Function to extract pixel color information from image data
+    function getPixel(imageData, x, y) {
+      const index = (y * imageData.width + x) * 4;
+      return {
+          r: imageData.data[index],
+          g: imageData.data[index + 1],
+          b: imageData.data[index + 2],
+          a: imageData.data[index + 3]
+      };
+    }
+
+    // Function to set pixel color information in image data
+    function setPixel(imageData, x, y, { r, g, b, a }) {
+      const index = (y * imageData.width + x) * 4;
+      imageData.data[index] = r;
+      imageData.data[index + 1] = g;
+      imageData.data[index + 2] = b;
+      imageData.data[index + 3] = a;
+    }
+
+    // Function to check if a color is black or white
+    function isBlackOrWhite(r, g, b) {
+      // Define threshold for black and white colors
+      const threshold = 30;
+
+      // Calculate grayscale value
+      const gray = (r + g + b) / 3;
+
+      // Check if grayscale value is close to 0 (black) or 255 (white)
+      return (gray < threshold || gray > 255 - threshold);
     }
 
     // Initial call to apply filters based on the initial state of checkboxes
     applyFilters();
-
   </script>
 </html>
