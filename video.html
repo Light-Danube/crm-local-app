@@ -134,9 +134,10 @@
         applyFilters();
     });
 
-    socket.on("background optimization status", (isEnhanced) => {
-      backgroundOptChecked = isEnhanced;
-      applyFilters();
+    // Socket event listener to handle background optimization status from the server
+    socket.on("background optimization status", (isChecked) => {
+      // Apply or remove background optimization effects based on checkbox state
+      applyBackgroundOptimization(isChecked);
     });
 
     function applyFilters() {
@@ -150,32 +151,20 @@
             filters += " brightness(110%) blur(1px)";
         }
 
-        if (backgroundOptChecked) {
-          // Apply filters for optimizing background
-          filters += " " + optimizeBackgroundEffects();
-        }
-
         videoPlayer.style.filter = filters || "none";
     }
 
-    // Function to apply background optimization effects
-    function optimizeBackgroundEffects() {
-      let backgroundFilters = "";
-
-      // Apply the specified background optimization effects
-      // Avoid using black color (except for background and cutout elements)
-      backgroundFilters += " opacity(0%);";
-
-      // Adjust shadows to warmer colors
-      backgroundFilters += " drop-shadow(0 0 10px rgba(255, 165, 0, 0.5));";
-
-      // Increase saturation for semi-transparent elements
-      backgroundFilters += " saturate(150%);";
-
-      // Replace white shadows with yellow
-      backgroundFilters += " drop-shadow(0 0 10px rgba(255, 255, 0, 0.5));";
-
-      return backgroundFilters;
+    // Function to apply or remove background optimization effects
+    function applyBackgroundOptimization(isChecked) {
+      if (isChecked) {
+          // Apply background optimization effects
+          console.log("Added be effects")
+          videoPlayer.classList.add("black-transparency", "white-transparency", "non-background-white", "warm-shadow", "saturated-element", "yellow-shadow");
+      } else {
+          // Remove background optimization effects
+          console.log("Removed be effects")
+          videoPlayer.classList.remove("black-transparency", "white-transparency", "non-background-white", "warm-shadow", "saturated-element", "yellow-shadow");
+      }
     }
   </script>
 </html>

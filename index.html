@@ -237,12 +237,8 @@
     // Event listener for the "optimizeBackground" checkbox
     optimizeBackgroundCheckbox.addEventListener("change", () => {
       // Emit the enhance details event to the server along with the checkbox state
-      console.log("Background status change")
       socket.emit("toggle background details", optimizeBackgroundCheckbox.checked);
-      // Update the state of the "Enhance Details" checkbox
-      backgroundOptimizeChecked = optimizeBackgroundCheckbox.checked;
-      // Apply filters based on the state of both checkboxes
-      applyFilters();
+      applyBackgroundOptimization(optimizeBackgroundCheckbox.checked);
     });
 
     // Function to apply filters based on the state of filter checkboxes
@@ -259,37 +255,27 @@
           // Adjust as needed based on your specific enhancements
           filters += " brightness(110%) blur(1px)";
       }
-
-      if (backgroundOptimizeChecked) {
-        // Apply filters for optimizing background
-        filters += " " + optimizeBackgroundEffects();
-        console.log("Background status effects")
-      }
-
       // Set the combined filters to the video player
       videoPlayer.style.filter = filters || "none";
     }
 
-    // Function to apply background optimization effects
-    function optimizeBackgroundEffects() {
-      let backgroundFilters = "";
+    // Socket event listener to handle background optimization status from the server
+    socket.on("background optimization status", (isChecked) => {
+      // Apply or remove background optimization effects based on checkbox state
+      applyBackgroundOptimization(isChecked);
+    });
 
-      // Apply the specified background optimization effects
-      // Avoid using black color (except for background and cutout elements)
-      backgroundFilters += " opacity(0%);";
-
-      // Adjust shadows to warmer colors
-      backgroundFilters += " drop-shadow(0 0 10px rgba(255, 165, 0, 0.5));";
-
-      // Increase saturation for semi-transparent elements
-      backgroundFilters += " saturate(150%);";
-
-      // Replace white shadows with yellow
-      backgroundFilters += " drop-shadow(0 0 10px rgba(255, 255, 0, 0.5));";
-
-      console.log("Background status effects added")
-
-      return backgroundFilters;
+    // Function to apply or remove background optimization effects
+    function applyBackgroundOptimization(isChecked) {
+      if (isChecked) {
+          // Apply background optimization effects
+          console.log("Added be effects")
+          videoPlayer.classList.add("black-transparency", "white-transparency", "non-background-white", "warm-shadow", "saturated-element", "yellow-shadow");
+      } else {
+          // Remove background optimization effects
+          console.log("Removed be effects")
+          videoPlayer.classList.remove("black-transparency", "white-transparency", "non-background-white", "warm-shadow", "saturated-element", "yellow-shadow");
+      }
     }
 
     // Initial call to apply filters based on the initial state of checkboxes

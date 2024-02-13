@@ -1,0 +1,33 @@
+/* CSS code for background optimization effects */
+.black-transparency {
+    /* Set transparency to 0% for black color */
+    opacity: 0% !important;
+}
+
+.white-transparency {
+    /* Set transparency to 0% for white color */
+    opacity: 0% !important;
+}
+
+.non-background-white {
+    /* Increase contrast to 130% for non-background white color */
+    filter: contrast(130%);
+}
+
+/* Warm shadows for 3D images */
+.warm-shadow {
+    /* Adjust shadow color to warmer tones */
+    filter: drop-shadow(0 0 10px rgba(255, 165, 0, 0.5));
+}
+
+/* Increased saturation for semi-transparent elements */
+.saturated-element {
+    /* Increase saturation to 150% */
+    filter: saturate(150%);
+}
+
+/* Replace white shadows with yellow */
+.yellow-shadow {
+    /* Change white shadow to yellow */
+    filter: drop-shadow(0 0 10px rgba(255, 255, 0, 0.5));
+}
