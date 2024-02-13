@@ -212,7 +212,7 @@ io.of("/playerControls").on('connection', (socket) => {
   });
 
   //Handle video "background":
-  socket.on("toggle background details", (isChecked) => {
+  socket.on("toggle back details", (isChecked) => {
    // Emit the enhance details status to all clients (including puppet page)
    socket.broadcast.emit("background optimization status", isChecked);
 });

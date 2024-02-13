@@ -135,9 +135,9 @@
     });
 
     // Socket event listener to handle background optimization status from the server
-    socket.on("background optimization status", (isChecked) => {
-      // Apply or remove background optimization effects based on checkbox state
-      applyBackgroundOptimization(isChecked);
+    socket.on("background optimization status", (isBack) => {
+      backgroundOptChecked = isBack;
+      applyFilters();
     });
 
     function applyFilters() {
@@ -149,6 +149,11 @@
 
         if (enhanceDetailsChecked) {
             filters += " brightness(110%) blur(1px)";
+        }
+
+        // Optimize Background filters (using CSS filters):
+        if (backgroundOptChecked) {
+          filters += " contrast(150%) drop-shadow(0 0 5px rgba(255, 0, 0, 0.5)) hue-rotate(15deg)";
         }
 
         videoPlayer.style.filter = filters || "none";

@@ -88,9 +88,7 @@
     <label for="optimizeColorButton">Optimize Color</label>
     <input type="checkbox" id="optimizeColorButton">
 
-    <label for="optimizeBackground">Optimize Background
-      <canvas id="backgroundCanvas"></canvas>
-    </label>
+    <label for="optimizeBackground">Optimize Background</label>
     <input type="checkbox" id="optimizeBackground">
 
     <!-- Modal -->
@@ -295,33 +293,13 @@
         applyFilters();
     });
 
-    optimizeBackgroundButton.addEventListener("change", () => {
-      // Access video frame data
-      if (optimizeBackgroundCheckbox.checked) {
-        const pixels = video.getPixels();
-
-        // Iterate through pixels and apply logic
-        for (const pixel of pixels) {
-          if (pixel.color === "#000000") {
-            pixel.alpha = 0; // Make black transparent
-          } else if (pixel.color === "#ffffff") {
-            if (pixel.x === 0 && pixel.y === 0) {
-              pixel.alpha = 0; // Transparent background white
-            } else {
-              pixel.contrast = 130; // Increase non-background white contrast
-            }
-          } else if (pixel.alpha < 1) { // Semi-transparent pixel
-            pixel.saturation = 100; // Increase saturation
-          } else if (pixel.color === "#ffffff" && pixel.alpha < 1) {
-            pixel.color = "#ffff00"; // White shadow to yellow
-          } else if (isShadow(pixel)) { // Change shadows to warm color
-            pixel.color = "#ff0000";
-          }
-        }
-      }
-
-      // Update video with modified pixels
-      video.updatePixels();
+    optimizeBackgroundCheckbox.addEventListener("change", () => {
+      // Emit the enhance details event to the server along with the checkbox state
+      socket.emit("toggle back details", optimizeBackgroundCheckbox.checked);
+      // Update the state of the "Enhance Details" checkbox
+      backgroundOptimizeChecked = optimizeBackgroundCheckbox.checked;
+      // Apply filters based on the state of both checkboxes
+      applyFilters();
     });
 
     // Helper function to identify shadows (replace with your logic)
@@ -343,6 +321,11 @@
           // Apply filters for enhancing details
           // Adjust as needed based on your specific enhancements
           filters += " brightness(110%) blur(1px)";
+      }
+
+      // Optimize Background filters (using CSS filters):
+      if (backgroundOptimizeChecked) {
+        filters += " contrast(150%) drop-shadow(0 0 5px rgba(255, 0, 0, 0.5)) hue-rotate(15deg)";
       }
 
       // Set the combined filters to the video player
