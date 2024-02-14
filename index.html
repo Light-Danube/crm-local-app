@@ -131,13 +131,29 @@
     const infoButton = document.getElementById("infoButton");
     const closeButton = document.getElementsByClassName("close")[0];
 
-
-    socket.on("file uploaded", () => console.log("file uploaded"));
-
     let loopEnabled = false;
     let optimizeColorChecked = false;
     let enhanceDetailsChecked = false;
     let backgroundOptimizeChecked = false;
+
+    //SESSIONS:
+    // Request a session ID from the server
+    fetch('/createSession')
+    .then(response => response.json())
+    .then(data => {
+        const sessionId = data.sessionId;
+        const clientId = generateClientId(); // Generate a unique client ID locally
+        socket.emit("join session", sessionId); // Join the session with the received session ID
+        socket.emit("client id", clientId); // Send the client ID to the server
+    })
+    .catch(error => console.error('Error:', error));
+
+    // Function to generate a unique client ID (can be improved)
+    function generateClientId() {
+        return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    }
+
+    //EMITTERS:
 
     // Function to toggle loop feature
     toggleLoopButton.addEventListener('click', () => {
@@ -350,5 +366,9 @@
             modal.style.display = "none";
         }
     });
+
+    //LISTENERS:
+    socket.on("file uploaded", () => console.log("file uploaded"));
+    
   </script>
 </html>

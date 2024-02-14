@@ -15,6 +15,7 @@
     "node-fetch": "^3.3.2",
     "reload": "^3.2.1",
     "socket.io": "^4.7.4",
+    "uuid": "^9.0.1",
     "ytdl-core": "^4.11.5"
   },
   "devDependencies": {

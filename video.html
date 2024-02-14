@@ -29,6 +29,19 @@
     let backgroundOptChecked = false;
     let currentTime = 0;
 
+    //SESSION:
+    // Request a session ID from the server (not needed if the session ID is passed as a query parameter)
+    const sessionId = new URLSearchParams(window.location.search).get("sessionId");
+    const clientId = generateClientId(); // Generate a unique client ID locally
+    socket.emit("join session", sessionId); // Join the session with the received session ID
+    socket.emit("client id", clientId); // Send the client ID to the server
+
+    // Function to generate a unique client ID (can be improved)
+    function generateClientId() {
+        return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    }
+
+    //LISTENERS:
     // Listen for the emitted video name from the master page
     socket.on("file uploaded", (videoName) => {
       console.log("Received uploaded video:", videoName);

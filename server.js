@@ -8,6 +8,8 @@ const cors = require('cors');
 
 const ytdl = require('ytdl-core');
 
+const { v4: uuidv4 } = require('uuid');
+
 const app = express();
 const server = createServer(app);
 const io = new Server(server);
@@ -15,8 +17,15 @@ const PORT = 3000;
 
 app.use(cors());
 
-// Serve React frontend
-app.use(express.static(path.join(__dirname, 'client/build')));
+// Map to store session IDs and associated sockets
+const sessions = new Map();
+
+// Generate a unique session ID for each master and return it to the client
+app.get('/createSession', (req, res) => {
+   const sessionId = uuidv4();
+   sessions.set(sessionId, { masterSocketId: null });
+   res.json({ sessionId });
+});
 
 // Serve the video.html file with query parameters
 app.get('/video.html', (req, res) => {
@@ -145,9 +154,40 @@ app.get('/youtube/:videoId', async (req, res) => {
 let isVideoInverted = false;
 let isColorOptimized = false;
 
+// Function to generate a unique identifier (UUID) for each client
+function generateClientId() {
+   return uuidv4();
+}
+
 // Обработчик подключения к каналу playerControls
 io.of("/playerControls").on('connection', (socket) => {
-   console.log('a user connected to playerControls');
+   console.log('A user connected to playerControls');
+
+   // Generate a unique client ID for each connected client
+   const clientId = generateClientId();
+
+   // Emit the client ID to the client
+   socket.emit("client id", clientId);
+
+   // Handle the client joining a session
+   socket.on("join session", (sessionId) => {
+       // Get the session associated with the provided session ID
+       const session = sessions.get(sessionId);
+       if (session) {
+           // Associate the client's socket ID with the session
+           session.masterSocketId = socket.id;
+           // Emit the session ID and client ID to the client
+           socket.emit("session joined", sessionId, clientId);
+       } else {
+           // If the session does not exist, emit an error to the client
+           socket.emit("session error", "Session not found");
+       }
+   });
+
+   //Debug on disconnection
+   socket.on("disconnect", () => {
+      console.log('A user disconnected from playerControls');
+   });
 
    // Обработчик события "player start"
    socket.on("player start", () => {
@@ -166,11 +206,6 @@ io.of("/playerControls").on('connection', (socket) => {
    socket.on("stop", () => {
       // Отправить событие "stop" всем клиентам в канале playerControls
       socket.broadcast.emit("stop");
-   });
-
-   //Debug on disconnection
-   socket.on("disconnect", () => {
-      console.log('A user disconnected from playerControls');
    });
 
    socket.on("player timeupdate", (time) => {
