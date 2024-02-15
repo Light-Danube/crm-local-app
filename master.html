@@ -84,10 +84,8 @@
       <!-- Stop button -->
       <button id="stopButton">STOP</button>
   
-      <!-- Endlessly Loop Video button-->
-      <button id="toggleLoopButton">Toggle Loop</button>
-  
       <!-- VIDEO EFFECTS BUTTONS:-->
+      <p class="text_op">Параметри відео</p>
       <label for="optimizeButton">Optimize Video</label>
       <input type="checkbox" id="optimizeButton">
   
@@ -100,6 +98,15 @@
   
       <label for="optimizeBackground">Optimize Background</label>
       <input type="checkbox" id="optimizeBackground">
+
+      <p class="text_op">Керувати відтворенням</p>
+      <!-- Endlessly Loop Video button-->
+      <label class="label_form" for="">
+        Зациклити відео
+        <span class="btn_check" id="toggleLoopButton">
+          <span class="switching"></span>
+        </span>
+      </label>
   
       <!-- Modal -->
       <button id="btn_information">Information</button>
@@ -176,6 +183,8 @@
 
     // Function to toggle loop feature
     toggleLoopButton.addEventListener('click', () => {
+      console.log("effect change")
+      toggleLoopButton.classList.add(".switching_active");
       loopEnabled = !loopEnabled;
       videoPlayer.loop = loopEnabled;
     });
