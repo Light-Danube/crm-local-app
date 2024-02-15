@@ -471,3 +471,9 @@ body {
     height: 219px;
   }
 }
+
+/* Adjust video size */
+.video_box video {
+  width: 100%; /* Ensure video fills its container */
+  height: 100%;
+}

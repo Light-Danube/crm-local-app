@@ -9,22 +9,31 @@
   <body>
     <header>
       <div class="container">
-          <img src="./src/components/img/image_1.png" alt="img not found" class="logo" />
-          <a href="https://crm.ucreate.org.ua/" class="header__link" target="_blank" rel="noreferrer">
-              Посилання на сайт
-          </a>
+        <img
+          src="./src/components/img/image_1.png"
+          alt="img not found"
+          class="logo"
+        />
+        <a
+          href="https://crm.ucreate.org.ua/"
+          class="header__link"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Посилання на сайт
+        </a>
       </div>
-    </header>
     <main>
       <div class="container">
         <div class="container_search">
           <div class="form_search">
             <div class="info">
               <!-- Form to upload local videos -->
+              <p class="text_op">Обрати відео</p>
               <label for="search-name" class="input_label">
-                Обрати відео
                 <div class="container_change">
-                  <input class="input_search"
+                  <input 
+                    class="input_search"
                     type="file" 
                     name="video" 
                     id="videoFile" 
@@ -40,10 +49,19 @@
                   </svg>
                 </div>
               </label>
+
               <!-- Form to stream YouTube videos -->
-              <form id="youtubeForm" style="display: none;">
-                <input type="text" id="youtubeUrlInput" placeholder="Enter YouTube URL" />
-              </form>
+              <label for="search-name" class="input_label">
+                <div class="container_change">
+                  <input
+                    class="input_search"
+                    type="text" 
+                    id="youtubeUrlInput"
+                    name="search-name"
+                    placeholder="https://"
+                    style="display: none;" />
+                </div>
+              </label>
           
               <!-- VIDEO EFFECTS BUTTONS:-->
               <p class="text_op">Параметри відео</p>
@@ -135,11 +153,15 @@
               </div>
             </div>
           </div>
+
           <div class="line"></div>
+
           <!-- Video player -->
-          <video id="video_box" controls muted>
-            <source type="video/mp4" />
-          </video>
+          <div class="video_box">
+            <video id="videoPlayer" controls muted>
+              <source type="video/mp4">
+            </video>
+          </div>
         </div>
       </div>
     </main>
@@ -149,7 +171,7 @@
     const socket = io("/playerControls");
 
     const videoFileInput = document.getElementById("videoFile");
-    const videoPlayer = document.getElementById("video_box");
+    const videoPlayer = document.getElementById("videoPlayer");
     const volumeControl = document.getElementById("volumeControl");
     const uploadButton = document.getElementById("uploadButton");
     const youtubeForm = document.getElementById("youtubeForm");
@@ -183,14 +205,14 @@
         // Show/hide input elements based on the type parameter
         if (type === 'local') {
             videoFileInput.style.display = 'block';
-            youtubeForm.style.display = 'none';
+            youtubeUrlInput.style.display = 'none';
             //Tweak buttons
             uploadButton.style.display = 'block';
             youtubeUrlStream.style.display = 'none';
             console.log("loaded local")
         } else if (type === 'url') {
             videoFileInput.style.display = 'none';
-            youtubeForm.style.display = 'block';
+            youtubeUrlInput.style.display = 'block';
              //Tweak buttons
             youtubeUrlStream.style.display = 'block';
             uploadButton.style.display = 'none';
