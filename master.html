@@ -309,12 +309,6 @@
         if (file) {
             const formData = new FormData();
             formData.append("video", file);
-
-            // Add the masterId query parameter to the URL
-            formData.append("masterId", masterPageID);
-
-            // Log the FormData object to verify if masterId is appended
-            console.log("FormData:", formData);
     
             fetch("/upload", {
                 method: "POST",
