@@ -309,30 +309,30 @@
         if (file) {
             const formData = new FormData();
             formData.append("video", file);
+            formData.append("masterPageID", masterPageID);
     
             fetch("/upload", {
                 method: "POST",
                 body: formData,
             })
-                .then((response) => {
-                    if (response.ok) {
-                        // Emit the uploaded video URL to the puppet page
-                        socket.emit("video uploaded", videoPlayer.src);
-                        if (!videoPlayer.paused) {
-                            socket.emit("player start", videoPlayer.play());
-                        }
-                        console.log("Video uploaded successfully!");
-                    } else {
-                        console.error("Failed to upload video.");
+            .then((response) => {
+                if (response.ok) {
+                    videoPlayer.src = response.url;
+                    if (!videoPlayer.paused) {
+                        socket.emit("player start", videoPlayer.play());
                     }
-                })
-                .catch((error) => {
-                    console.error("Error uploading video:", error);
-                });
+                    console.log("Video uploaded successfully!");
+                } else {
+                    console.error("Failed to upload video.");
+                }
+            })
+            .catch((error) => {
+                console.error("Error uploading video:", error);
+            });
         } else {
             console.error("No file selected.");
         }
-      });
+    });
     
 
       // Функция для обновления видеоплеера
