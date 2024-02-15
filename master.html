@@ -168,7 +168,7 @@
   </body>
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io("/playerControls");
+    const socket = io('/playerControls', { transports: ['websocket'] });
 
     const videoFileInput = document.getElementById("videoFile");
     const videoPlayer = document.getElementById("videoPlayer");

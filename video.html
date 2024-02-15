@@ -21,7 +21,7 @@
   <script src="/socket.io/socket.io.js"></script>
   <script>
     // Connect to the playerControls namespace
-    const socket = io("/playerControls");
+    const socket = io('/playerControls', { transports: ['websocket'] });
     const videoPlayer = document.getElementById("videoPlayer");
 
     let optimizeColorChecked = false;

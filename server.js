@@ -12,6 +12,7 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server);
 const PORT = 3000;
+const namespace = io.of("/playerControls");
 
 app.use(cors());
 
@@ -165,7 +166,7 @@ let isVideoInverted = false;
 let isColorOptimized = false;
 
 // Обработчик подключения к каналу playerControls
-io.of("/playerControls").on('connection', (socket) => {
+namespace.on('connection', (socket) => {
    console.log('A user connected to playerControls');
 
    // Event listener for disconnecting
