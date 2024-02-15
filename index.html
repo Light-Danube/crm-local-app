@@ -1,374 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Upload Video</title>
-    <style>
-      h1 {
-        color: lightgray;
-      }
-      body {
-        margin: 40px auto;
-        max-width: 650px;
-        background-color: #444;
-      }
-
-      /* Styles for the modal */
-      .modal {
-          display: none;
-          position: fixed;
-          z-index: 1;
-          left: 0;
-          top: 0;
-          width: 100%;
-          height: 100%;
-          overflow: auto;
-          background-color: rgba(0, 0, 0, 0.5);
-      }
-        
-      /* Modal content */
-      .modal-content {
-          background-color: #fefefe;
-          margin: 15% auto;
-          padding: 20px;
-          border: 1px solid #888;
-          width: 80%;
-      }
-        
-      /* Close button */
-      .close {
-          color: #aaa;
-          float: right;
-          font-size: 28px;
-          font-weight: bold;
-      }
-        
-      .close:hover,
-      .close:focus {
-          color: black;
-          text-decoration: none;
-          cursor: pointer;
-      }
-    </style>
-  </head>
-  <body>
-    <h1>Upload Video</h1>
-    <!-- Form to upload local videos -->
-    <input type="file" name="video" id="videoFile" accept="video/*" />
-    <button id="uploadButton">Upload</button>
-    <!-- Form to stream YouTube videos -->
-    <form id="youtubeForm">
-      <input type="text" id="youtubeUrlInput" placeholder="Enter YouTube URL" />
-      <button type="submit">Stream YouTube Video</button>
-    </form>
-
-    <!-- Video player -->
-    <video id="videoPlayer" width="650" controls muted>
-      <source type="video/mp4" />
-    </video>
-
-    <!-- Volume control -->
-    <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="1" />
-
-    <!-- Stop button -->
-    <button id="stopButton">STOP</button>
-
-    <!-- Endlessly Loop Video button-->
-    <button id="toggleLoopButton">Toggle Loop</button>
-
-    <!-- VIDEO EFFECTS BUTTONS:-->
-    <label for="optimizeButton">Optimize Video</label>
-    <input type="checkbox" id="optimizeButton">
-
-    
-    <label for="enhanceDetailsCheckbox">Enhance Details</label>
-    <input type="checkbox" id="enhanceDetailsCheckbox">
-
-    <label for="optimizeColorButton">Optimize Color</label>
-    <input type="checkbox" id="optimizeColorButton">
-
-    <label for="optimizeBackground">Optimize Background</label>
-    <input type="checkbox" id="optimizeBackground">
-
-    <!-- Modal -->
-    <button id="infoButton">Information</button>
-
-    <!-- Modal -->
-    <div id="infoModal" class="modal">
-        <!-- Modal content -->
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>Video Controls Information</h2>
-            <p><strong>Start Button:</strong> Starts playback of the video.</p>
-            <p><strong>Optimize Color Button:</strong> Enhances the color contrast and saturation of the video.</p>
-            <p><strong>Enhance Details Checkbox:</strong> Enhances the sharpness and clarity of the video.</p>
-            <p><strong>Inverse Video:</strong> Inverses content in video by horizontally.</p>
-            <p><strong>Optimize Background:</strong> Enhances background, affecting specific background colors and color tones.</p>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/index.css" />
+    <title>Upload Video Starter</title>
+</head>
+<body>
+    <header>
+        <div class="container container__header">
+            <img src="src/components/img/image_1.png" alt="img not found" class="logo" />
+            <a href="https://crm.ucreate.org.ua/" class="header__link" target="_blank" rel="noreferrer">
+                Посилання на сайт
+            </a>
         </div>
+    </header>
+    <main>
+      <div class="container">
+        <section class="navigation">
+            <!-- Use JavaScript to redirect to master.html with the selected type as a query parameter -->
+            <a href="#" onclick="redirectToMaster('local')">
+                <div class="loupe">
+                    <img class="img__loupe" src="src/components/img/Loupe.svg" alt="Loupe not found" />
+                </div>
+            </a>
+            <div class="line__main"></div>
+            <!-- Use JavaScript to redirect to master.html with the selected type as a query parameter -->
+            <a href="#" onclick="redirectToMaster('url')">
+                <div class="url">
+                    <img class="img__url" src="src/components/img/URL.svg" alt="URL not found" />
+                </div>
+            </a>
+        </section>
     </div>
-  </body>
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io("/playerControls");
+    </main>
 
-    const videoFileInput = document.getElementById("videoFile");
-    const videoPlayer = document.getElementById("videoPlayer");
-    const volumeControl = document.getElementById("volumeControl");
-    const uploadButton = document.getElementById("uploadButton");
-    const youtubeForm = document.getElementById("youtubeForm");
-    const youtubeUrlInput = document.getElementById("youtubeUrlInput");
-    const stopButton = document.getElementById("stopButton");
-
-    //Video Additional Effects:
-    const toggleInversionCheckbox = document.getElementById("optimizeButton");
-    const enhanceDetailsCheckbox = document.getElementById("enhanceDetailsCheckbox");
-    const optimizeColorButton = document.getElementById("optimizeColorButton");
-    const optimizeBackgroundCheckbox = document.getElementById("optimizeBackground");
-
-    // Get the modal and buttons
-    const modal = document.getElementById("infoModal");
-    const infoButton = document.getElementById("infoButton");
-    const closeButton = document.getElementsByClassName("close")[0];
-
-    let loopEnabled = false;
-    let optimizeColorChecked = false;
-    let enhanceDetailsChecked = false;
-    let backgroundOptimizeChecked = false;
-
-    //SESSIONS:
-    // Request a session ID from the server
-    fetch('/createSession')
-    .then(response => response.json())
-    .then(data => {
-        const sessionId = data.sessionId;
-        const clientId = generateClientId(); // Generate a unique client ID locally
-        socket.emit("join session", sessionId); // Join the session with the received session ID
-        socket.emit("client id", clientId); // Send the client ID to the server
-    })
-    .catch(error => console.error('Error:', error));
-
-    // Function to generate a unique client ID (can be improved)
-    function generateClientId() {
-        return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    }
-
-    //EMITTERS:
-
-    // Function to toggle loop feature
-    toggleLoopButton.addEventListener('click', () => {
-      loopEnabled = !loopEnabled;
-      videoPlayer.loop = loopEnabled;
-    });
-
-
-    // Handle YouTube video streaming form submission
-    youtubeForm.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const youtubeUrl = youtubeUrlInput.value;
-
-      try {
-        // Extract video ID from YouTube URL
-        const videoId = extractVideoId(youtubeUrl);
-        // Fetch YouTube video from server
-        const response = await fetch(`/youtube/${videoId}`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch YouTube video");
-        }
-        // Set video source
-        videoPlayer.src = URL.createObjectURL(await response.blob());
-        // Play video
-        videoPlayer.play();
-
-        // Send the video URL to the puppet page
-        sendVideoUrl(youtubeUrl);
-      } catch (error) {
-        console.error("Failed to stream YouTube video:", error);
+    <script>
+      // Function to redirect to master.html with the selected type as a query parameter
+      function redirectToMaster(type) {
+          // Redirect to master.html with the selected type as a query parameter
+          window.location.href = `/select?type=${type}`;
       }
-    });
-
-    // Function to send video URL to puppet page
-    function sendVideoUrl(url) {
-      socket.emit("video url", url);
-    }
-
-    // Function to extract video ID from YouTube URL
-    function extractVideoId(url) {
-      const match = url.match(/[?&]v=([^&]+)/);
-      return match && match[1];
-    }
-
-
-    videoPlayer.addEventListener('play', () => {
-      socket.emit("player start", videoPlayer.play())
-    });
-
-    videoPlayer.addEventListener("pause", () =>
-      socket.emit("player pause", videoPlayer.pause())
-    );
-
-    videoPlayer.addEventListener("seeking", () =>
-      socket.emit("player timeupdate", videoPlayer.currentTime)
-    );
-
-    volumeControl.addEventListener("input", () =>
-      socket.emit("player volumeupdate", volumeControl.value)
-    );
-
-    uploadButton.addEventListener("click", function () {
-      const file = videoFileInput.files[0];
-      if (file) {
-          const formData = new FormData();
-          formData.append("video", file);
-  
-          fetch("/upload", {
-              method: "POST",
-              body: formData,
-          })
-              .then((response) => {
-                  if (response.ok) {
-                      // Emit the uploaded video URL to the puppet page
-                      socket.emit("video uploaded", videoPlayer.src);
-                      if (!videoPlayer.paused) {
-                          socket.emit("player start", videoPlayer.play());
-                      }
-                      console.log("Video uploaded successfully!");
-                  } else {
-                      console.error("Failed to upload video.");
-                  }
-              })
-              .catch((error) => {
-                  console.error("Error uploading video:", error);
-              });
-      } else {
-          console.error("No file selected.");
-      }
-  });
-  
-
-    // Функция для обновления видеоплеера
-    function updateVideoPlayer(file) {
-      const url = URL.createObjectURL(file);
-      videoPlayer.src = url;
-      console.log(videoPlayer.src);
-    }
-
-    // Обработчик события загрузки страницы
-    window.addEventListener("DOMContentLoaded", function () {
-      // Вызываем функцию updateVideoPlayer при загрузке страницы, если есть выбранный файл
-      if (videoFileInput.files[0]) {
-        updateVideoPlayer(videoFileInput.files[0]);
-      }
-    });
-
-    // Добавляем обработчик события change для input type="file"
-    videoFileInput.addEventListener("change", function () {
-      const file = this.files[0];
-      updateVideoPlayer(file);
-    });
-
-    // Event listener for the STOP button
-    stopButton.addEventListener("click", () => {
-      // Stop the video playback on both pages
-      socket.emit("stop");
-      videoPlayer.pause();
-      videoPlayer.currentTime = 0;
-    });
-
-
-    //VIDEO PARAMETERS:
-    //Inversion:
-    //Toggle inversion checkbox event listener
-    toggleInversionCheckbox.addEventListener("change", () => {
-      // Emit the inversion status to the server
-      socket.emit("toggle inversion");
-      // Apply the inversion effect locally on the master page
-      if (toggleInversionCheckbox.checked) {
-        videoPlayer.style.transform = "scaleX(-1) translateX(1%)";
-      } else {
-        videoPlayer.style.transform = "scaleX(1) translateX(0)";
-      }
-    });
-
-    // Event listener for the "Optimize Color" checkbox
-    optimizeColorButton.addEventListener("change", () => {
-        socket.emit("optimize color");
-        // Update the state of the "Optimize Color" checkbox
-        optimizeColorChecked = optimizeColorButton.checked;
-        // Apply filters based on the state of both checkboxes
-        applyFilters();
-    });
-
-    // Event listener for the "Enhance Details" checkbox
-    enhanceDetailsCheckbox.addEventListener("change", () => {
-        // Emit the enhance details event to the server along with the checkbox state
-        socket.emit("toggle enhance details", enhanceDetailsCheckbox.checked);
-        // Update the state of the "Enhance Details" checkbox
-        enhanceDetailsChecked = enhanceDetailsCheckbox.checked;
-        // Apply filters based on the state of both checkboxes
-        applyFilters();
-    });
-
-    optimizeBackgroundCheckbox.addEventListener("change", () => {
-      // Emit the enhance details event to the server along with the checkbox state
-      socket.emit("toggle back details", optimizeBackgroundCheckbox.checked);
-      // Update the state of the "Enhance Details" checkbox
-      backgroundOptimizeChecked = optimizeBackgroundCheckbox.checked;
-      // Apply filters based on the state of both checkboxes
-      applyFilters();
-    });
-
-    // Helper function to identify shadows (replace with your logic)
-    function isShadow(pixel) {
-      return pixel.color === "#000000" && pixel.alpha < 1;
-    }
-
-
-    // Function to apply filters based on the state of filter checkboxes
-    function applyFilters() {
-      let filters = "";
-
-      if (optimizeColorChecked) {
-          // Apply filters for optimizing color
-          filters += " contrast(130%) saturate(130%)";
-      }
-
-      if (enhanceDetailsChecked) {
-          // Apply filters for enhancing details
-          // Adjust as needed based on your specific enhancements
-          filters += " brightness(110%) blur(0.25px)";
-      }
-
-      // Optimize Background filters (using CSS filters):
-      if (backgroundOptimizeChecked) {
-        filters += " contrast(150%) drop-shadow(0 0 5px rgba(255, 0, 0, 0.5)) hue-rotate(15deg)";
-      }
-
-      // Set the combined filters to the video player
-      videoPlayer.style.filter = filters || "none";
-    }
-
-    // Initial call to apply filters based on the initial state of checkboxes
-    applyFilters();
-
-    // Event listener for clicking the info button
-    infoButton.addEventListener("click", () => {
-        modal.style.display = "block";
-    });
-
-    // Event listener for clicking the close button or outside the modal
-    closeButton.addEventListener("click", () => {
-        modal.style.display = "none";
-    });
-
-    window.addEventListener("click", (event) => {
-        if (event.target === modal) {
-            modal.style.display = "none";
-        }
-    });
-
-    //LISTENERS:
-    socket.on("file uploaded", () => console.log("file uploaded"));
-    
   </script>
+</body>
 </html>
+

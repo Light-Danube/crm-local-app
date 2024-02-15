@@ -8,8 +8,6 @@ const cors = require('cors');
 
 const ytdl = require('ytdl-core');
 
-const { v4: uuidv4 } = require('uuid');
-
 const app = express();
 const server = createServer(app);
 const io = new Server(server);
@@ -17,14 +15,31 @@ const PORT = 3000;
 
 app.use(cors());
 
-// Map to store session IDs and associated sockets
-const sessions = new Map();
+// Serve static files from the "public" directory
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Generate a unique session ID for each master and return it to the client
-app.get('/createSession', (req, res) => {
-   const sessionId = uuidv4();
-   sessions.set(sessionId, { masterSocketId: null });
-   res.json({ sessionId });
+// Redirect users to the /index route when they access the root URL
+app.get('/', (req, res) => {
+   res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Handle the selection made by the user and redirect to the appropriate page
+app.get('/select', (req, res) => {
+   const uploadType = req.query.type;
+
+   if (uploadType === 'local' || uploadType === 'url') {
+       // Redirect to the master.html page with the appropriate upload type
+       res.redirect(`/master.html?type=${uploadType}`);
+   } else {
+       // Redirect to the master.html page with the default upload type (local)
+       res.redirect('/master.html?type=local');
+   }
+});
+
+// Serve the master.html file
+app.get('/master.html', (req, res) => {
+   // Send the master.html file
+   res.sendFile(path.join(__dirname, 'master.html'));
 });
 
 // Serve the video.html file with query parameters
@@ -51,11 +66,6 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage: storage });
-
-// Главная страница для загрузки видео
-app.get('/', (req, res) => {
-   res.sendFile(path.join(__dirname, 'index.html'));
-});
 
 // Страница для проигрывания видео
 app.get('/video', (req, res) => {
@@ -154,39 +164,13 @@ app.get('/youtube/:videoId', async (req, res) => {
 let isVideoInverted = false;
 let isColorOptimized = false;
 
-// Function to generate a unique identifier (UUID) for each client
-function generateClientId() {
-   return uuidv4();
-}
-
 // Обработчик подключения к каналу playerControls
 io.of("/playerControls").on('connection', (socket) => {
    console.log('A user connected to playerControls');
 
-   // Generate a unique client ID for each connected client
-   const clientId = generateClientId();
-
-   // Emit the client ID to the client
-   socket.emit("client id", clientId);
-
-   // Handle the client joining a session
-   socket.on("join session", (sessionId) => {
-       // Get the session associated with the provided session ID
-       const session = sessions.get(sessionId);
-       if (session) {
-           // Associate the client's socket ID with the session
-           session.masterSocketId = socket.id;
-           // Emit the session ID and client ID to the client
-           socket.emit("session joined", sessionId, clientId);
-       } else {
-           // If the session does not exist, emit an error to the client
-           socket.emit("session error", "Session not found");
-       }
-   });
-
-   //Debug on disconnection
-   socket.on("disconnect", () => {
-      console.log('A user disconnected from playerControls');
+   // Event listener for disconnecting
+   socket.on('disconnect', () => {
+      console.log('A user disconnected');
    });
 
    // Обработчик события "player start"
@@ -250,10 +234,12 @@ io.of("/playerControls").on('connection', (socket) => {
   socket.on("toggle back details", (isChecked) => {
    // Emit the enhance details status to all clients (including puppet page)
    socket.broadcast.emit("background optimization status", isChecked);
-});
+  });
+
 });
 
+// Start the server
 server.listen(PORT, () => {
    console.log(`Server is running on http://localhost:${PORT}`);
-   console.log(`To run video page, use http://localhost:${PORT}/video`);
+   console.log(`To upload a video, visit http://localhost:${PORT}/index?type=local or http://localhost:${PORT}/index?type=url`);
 });
