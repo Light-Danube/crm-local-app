@@ -5,53 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="./src/components/styles/index.css" />
     <title>Video Controller</title>
-    <style>
-      /*h1 {
-        color: lightgray;
-      }
-      body {
-        margin: 40px auto;
-        max-width: 650px;
-        background-color: #444;
-      }*/
-
-      /* Styles for the modal
-      .modal {
-          display: none;
-          position: fixed;
-          z-index: 1;
-          left: 0;
-          top: 0;
-          width: 100%;
-          height: 100%;
-          overflow: auto;
-          background-color: rgba(0, 0, 0, 0.5);
-      }
-        
-      Modal content
-      .modal-content {
-          background-color: #fefefe;
-          margin: 15% auto;
-          padding: 20px;
-          border: 1px solid #888;
-          width: 80%;
-      }
-        
-      Close button
-      .close {
-          color: #aaa;
-          float: right;
-          font-size: 28px;
-          font-weight: bold;
-      }
-        
-      .close:hover,
-      .close:focus {
-          color: black;
-          text-decoration: none;
-          cursor: pointer;
-      }*/
-    </style>
   </head>
   <body>
     <header>
@@ -65,66 +18,70 @@
     <main>
       <div class="container">
         <div class="container_search">
-          <!-- Form to upload local videos -->
-          <input type="file" name="video" id="videoFile" accept="video/*" style="display: none;"/>
-          <button class="btn_submit" id="uploadButton">Запустити на екран</button>
-          <!-- Form to stream YouTube videos -->
-          <form id="youtubeForm" style="display: none;">
-            <input type="text" id="youtubeUrlInput" placeholder="Enter YouTube URL" />
-            <button class="btn_submit" type="submit">Запустити на екран</button>
-          </form>
-      
+          <div class="form_search">
+            <div class="info">
+              <!-- Form to upload local videos -->
+              <input type="file" name="video" id="videoFile" accept="video/*" style="display: none;"/>
+              <button class="btn_submit" id="uploadButton">Запустити на екран</button>
+              <!-- Form to stream YouTube videos -->
+              <form id="youtubeForm" style="display: none;">
+                <input type="text" id="youtubeUrlInput" placeholder="Enter YouTube URL" />
+                <button class="btn_submit" type="submit">Запустити на екран</button>
+              </form>
+          
+              <!-- Volume control -->
+              <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="1" />
+          
+              <!-- Stop button -->
+              <button id="stopButton">STOP</button>
+          
+              <!-- VIDEO EFFECTS BUTTONS:-->
+              <p class="text_op">Параметри відео</p>
+              <label for="optimizeButton">Optimize Video</label>
+              <input type="checkbox" id="optimizeButton">
+          
+              
+              <label for="enhanceDetailsCheckbox">Enhance Details</label>
+              <input type="checkbox" id="enhanceDetailsCheckbox">
+          
+              <label for="optimizeColorButton">Optimize Color</label>
+              <input type="checkbox" id="optimizeColorButton">
+          
+              <label for="optimizeBackground">Optimize Background</label>
+              <input type="checkbox" id="optimizeBackground">
+
+              <p class="text_op">Керувати відтворенням</p>
+              <!-- Endlessly Loop Video button-->
+              <label class="label_form" for="">
+                Зациклити відео
+                <span class="btn_check" id="toggleLoopButton">
+                  <span class="switching"></span>
+                </span>
+              </label>
+          
+              <!-- Modal -->
+              <button id="btn_information">Information</button>
+          
+              <!-- Modal -->
+              <div id="infoModal" class="modal">
+                  <!-- Modal content -->
+                  <div class="modal-content">
+                      <span class="close">&times;</span>
+                      <h2>Video Controls Information</h2>
+                      <p><strong>Start Button:</strong> Starts playback of the video.</p>
+                      <p><strong>Optimize Color Button:</strong> Enhances the color contrast and saturation of the video.</p>
+                      <p><strong>Enhance Details Checkbox:</strong> Enhances the sharpness and clarity of the video.</p>
+                      <p><strong>Inverse Video:</strong> Inverses content in video by horizontally.</p>
+                      <p><strong>Optimize Background:</strong> Enhances background, affecting specific background colors and color tones.</p>
+                  </div>
+              </div>
+            </div>
+          </div>
+          <div class="line"></div>
           <!-- Video player -->
           <video id="video_box" width="650" controls muted>
             <source type="video/mp4" />
           </video>
-      
-          <!-- Volume control -->
-          <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="1" />
-      
-          <!-- Stop button -->
-          <button id="stopButton">STOP</button>
-      
-          <!-- VIDEO EFFECTS BUTTONS:-->
-          <p class="text_op">Параметри відео</p>
-          <label for="optimizeButton">Optimize Video</label>
-          <input type="checkbox" id="optimizeButton">
-      
-          
-          <label for="enhanceDetailsCheckbox">Enhance Details</label>
-          <input type="checkbox" id="enhanceDetailsCheckbox">
-      
-          <label for="optimizeColorButton">Optimize Color</label>
-          <input type="checkbox" id="optimizeColorButton">
-      
-          <label for="optimizeBackground">Optimize Background</label>
-          <input type="checkbox" id="optimizeBackground">
-
-          <p class="text_op">Керувати відтворенням</p>
-          <!-- Endlessly Loop Video button-->
-          <label class="label_form" for="">
-            Зациклити відео
-            <span class="btn_check" id="toggleLoopButton">
-              <span class="switching"></span>
-            </span>
-          </label>
-      
-          <!-- Modal -->
-          <button id="btn_information">Information</button>
-      
-          <!-- Modal -->
-          <div id="infoModal" class="modal">
-              <!-- Modal content -->
-              <div class="modal-content">
-                  <span class="close">&times;</span>
-                  <h2>Video Controls Information</h2>
-                  <p><strong>Start Button:</strong> Starts playback of the video.</p>
-                  <p><strong>Optimize Color Button:</strong> Enhances the color contrast and saturation of the video.</p>
-                  <p><strong>Enhance Details Checkbox:</strong> Enhances the sharpness and clarity of the video.</p>
-                  <p><strong>Inverse Video:</strong> Inverses content in video by horizontally.</p>
-                  <p><strong>Optimize Background:</strong> Enhances background, affecting specific background colors and color tones.</p>
-              </div>
-          </div>
         </div>
       </div>
     </main>
