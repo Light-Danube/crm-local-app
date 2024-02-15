@@ -5,173 +5,239 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Play Video</title>
     <style>
-      h1 {
-        color: lightgray;
-      }
       body {
         background-color: black;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+  
+      #videoContainer {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+  
+      #videoPlayer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+  
+      .input-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+        margin-bottom: 20px;
+      }
+  
+      .input-container button {
+        padding: 10px 20px;
+        border-radius: 5px;
+        border: none;
+        background-color: lightgreen;
+        cursor: pointer;
       }
     </style>
   </head>
   <body>
-    <video id="videoPlayer" style="width: 100%">
-      Your browser does not support the video tag.
-    </video>
-  </body>
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    // Connect to the playerControls namespace
-    const socket = io('/playerControls', { transports: ['websocket'] });
-    const videoPlayer = document.getElementById("videoPlayer");
+    <div id="videoContainer">
+      <video id="videoPlayer" style="width: 100%">
+        Your browser does not support the video tag.
+      </video>
+    </div>
+  
+    <div class="input-container">
+      <button id="connectToMasterButton">Connect to Master</button>
+    </div>
 
-    let optimizeColorChecked = false;
-    let enhanceDetailsChecked = false;
-    let backgroundOptChecked = false;
-    let currentTime = 0;
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const videoPlayer = document.getElementById("videoPlayer");
+      const userIDButton = document.getElementById("connectToMasterButton");
 
-    //SESSION:
-    //LISTENERS:
-    // Listen for the emitted video name from the master page
-    socket.on("file uploaded", (videoName) => {
-      console.log("Received uploaded video:", videoName);
-      // Load the uploaded video by its name
-      videoPlayer.src = `/uploads/${videoName}`;
-      // Reset the video to the beginning and pause it
-      videoPlayer.currentTime = 0;
-      videoPlayer.pause();
-    });
+      let optimizeColorChecked = false;
+      let enhanceDetailsChecked = false;
+      let backgroundOptChecked = false;
+      let currentTime = 0;
+
+      //PUPPET LOAD
+      // Connect to the playerControls namespace
+      const socket = io('/playerControls', { transports: ['websocket'] });
+
+      userIDButton.addEventListener('click', () => {
+        // Display a prompt to enter the master ID
+        const userID = prompt("Please enter the master ID");
+
+        if (userID) {
+          socket.emit('connectToMaster', userID);
+        } else {
+          alert("Please enter a userID");
+        }
+      });
+
+      socket.on('masterConnected', (masterID) => {
+        console.log('Connected to master page with ID:', masterID);
+        // Disable Enterance puppet elements
+        userIDButton.style.display = 'none';
+
+        // Show elements
+        videoPlayer.style.display = 'block';
+      });
     
-    socket.on("play", () => {
-      //console.log("Received play command from server");
-      videoPlayer.play();
-    });
+      socket.on('error', (errorMessage) => {
+        console.error(errorMessage);
+      });
 
-    socket.on("pause", () => {
-      //console.log("Received pause command from server");
-      videoPlayer.pause();
-    });
+      //LISTENERS:
+      // Listen for the emitted video name from the master page
+      socket.on("file uploaded", (videoName) => {
+        console.log("Received uploaded video:", videoName);
+        // Load the uploaded video by its name
+        videoPlayer.src = `/uploads/${videoName}`;
+        // Reset the video to the beginning and pause it
+        videoPlayer.currentTime = 0;
+        videoPlayer.pause();
+      });
+      
+      socket.on("play", () => {
+        //console.log("Received play command from server");
+        videoPlayer.play();
+      });
 
-    // Debugging: Log socket connection status
-    socket.on("connect", () => {
-      console.log("Connected to server");
-    });
+      socket.on("pause", () => {
+        //console.log("Received pause command from server");
+        videoPlayer.pause();
+      });
 
-    socket.on("disconnect", () => {
-      console.log("Disconnected from server");
-    });
+      // Debugging: Log socket connection status
+      socket.on("connect", () => {
+        console.log("Connected to server");
+      });
 
-    // Update the videoPlayer's currentTime when receiving timeupdate from the server
-    socket.on("timeupdate", (time) => {
-      // Устанавливаем новое время воспроизведения только если оно отличается от текущего
-      if (Math.abs(videoPlayer.currentTime - time) > 0.01) {
-        videoPlayer.currentTime = time;
-      }
-    });
+      socket.on("disconnect", () => {
+        console.log("Disconnected from server");
+      });
 
-   
+      // Update the videoPlayer's currentTime when receiving timeupdate from the server
+      socket.on("timeupdate", (time) => {
+        // Устанавливаем новое время воспроизведения только если оно отличается от текущего
+        if (Math.abs(videoPlayer.currentTime - time) > 0.01) {
+          videoPlayer.currentTime = time;
+        }
+      });
 
-    socket.on("volumeupdate", (volume) => {
-      videoPlayer.volume = volume;
-    });
-
-    // Function to extract video ID from YouTube URL
-    function extractVideoId(url) {
-      const match = url.match(/[?&]v=([^&]+)/);
-      return match && match[1];
-    }
-
-    // Обновление текущего времени воспроизведения при перемотке видео
-    videoPlayer.addEventListener("seeking", () => {
-      currentTime = videoPlayer.currentTime;
-    });
     
 
-    // Обработка нового видео URL от сервера
-    socket.on("video url", (url) => {
-      console.log("Received video URL:", url);
-      const videoId = extractVideoId(url);
-      if (videoId) {
-        // Set video source to YouTube video
-        videoPlayer.src = `/youtube/${videoId}`;
-        // Восстановление времени воспроизведения после загрузки нового видео
-        videoPlayer.addEventListener("loadedmetadata", () => {
-          videoPlayer.currentTime = currentTime;
-          videoPlayer.play(); // Возможно, вам захочется воспроизвести видео после установки времени
-        });
-      } else {
-        console.error("Invalid video URL:", url);
+      socket.on("volumeupdate", (volume) => {
+        videoPlayer.volume = volume;
+      });
+
+      // Function to extract video ID from YouTube URL
+      function extractVideoId(url) {
+        const match = url.match(/[?&]v=([^&]+)/);
+        return match && match[1];
       }
-    });
 
-    // Event listener for receiving the "stop" command
-    socket.on("stop", () => {
-      // Pause the video and reset it to the beginning
-      videoPlayer.pause();
-      videoPlayer.currentTime = 0;
-    });
+      // Обновление текущего времени воспроизведения при перемотке видео
+      videoPlayer.addEventListener("seeking", () => {
+        currentTime = videoPlayer.currentTime;
+      });
+      
 
-    // Listen for the uploaded video URL emitted from the master page
-    socket.on("video uploaded", (url) => {
-      // Load the uploaded video URL on the puppet page
-      videoPlayer.src = url;
-    });
+      // Обработка нового видео URL от сервера
+      socket.on("video url", (url) => {
+        console.log("Received video URL:", url);
+        const videoId = extractVideoId(url);
+        if (videoId) {
+          // Set video source to YouTube video
+          videoPlayer.src = `/youtube/${videoId}`;
+          // Восстановление времени воспроизведения после загрузки нового видео
+          videoPlayer.addEventListener("loadedmetadata", () => {
+            videoPlayer.currentTime = currentTime;
+            videoPlayer.play(); // Возможно, вам захочется воспроизвести видео после установки времени
+          });
+        } else {
+          console.error("Invalid video URL:", url);
+        }
+      });
 
-    //VIDEO PARAMETERS:
-    //Inversion:
-    socket.on("inversion status", (isInverted) => {
-      if (isInverted) {
-        videoPlayer.style.transform = "scaleX(-1) translateX(1%)";
-      } else {
-        videoPlayer.style.transform = "scaleX(1) translateX(0)";
-      }
-    });
+      // Event listener for receiving the "stop" command
+      socket.on("stop", () => {
+        // Pause the video and reset it to the beginning
+        videoPlayer.pause();
+        videoPlayer.currentTime = 0;
+      });
 
-    socket.on("color optimization status", (isColorOptimized) => {
-      optimizeColorChecked = isColorOptimized;
-      applyFilters();
-    });
+      // Listen for the uploaded video URL emitted from the master page
+      socket.on("video uploaded", (url) => {
+        // Load the uploaded video URL on the puppet page
+        videoPlayer.src = url;
+      });
 
-    socket.on("enhance details status", (isEnhanced) => {
-        enhanceDetailsChecked = isEnhanced;
+      //VIDEO PARAMETERS:
+      //Inversion:
+      socket.on("inversion status", (isInverted) => {
+        if (isInverted) {
+          videoPlayer.style.transform = "scaleX(-1) translateX(1%)";
+        } else {
+          videoPlayer.style.transform = "scaleX(1) translateX(0)";
+        }
+      });
+
+      socket.on("color optimization status", (isColorOptimized) => {
+        optimizeColorChecked = isColorOptimized;
         applyFilters();
-    });
+      });
 
-    // Socket event listener to handle background optimization status from the server
-    socket.on("background optimization status", (isBack) => {
-      backgroundOptChecked = isBack;
-      applyFilters();
-    });
+      socket.on("enhance details status", (isEnhanced) => {
+          enhanceDetailsChecked = isEnhanced;
+          applyFilters();
+      });
 
-    function applyFilters() {
-        let filters = "";
+      // Socket event listener to handle background optimization status from the server
+      socket.on("background optimization status", (isBack) => {
+        backgroundOptChecked = isBack;
+        applyFilters();
+      });
 
-        if (optimizeColorChecked) {
-            filters += " contrast(130%) saturate(130%)";
-        }
+      function applyFilters() {
+          let filters = "";
 
-        if (enhanceDetailsChecked) {
-            filters += " brightness(110%) blur(0.25px)";
-        }
+          if (optimizeColorChecked) {
+              filters += " contrast(130%) saturate(130%)";
+          }
 
-        // Optimize Background filters (using CSS filters):
-        if (backgroundOptChecked) {
-          filters += " contrast(150%) drop-shadow(0 0 5px rgba(255, 0, 0, 0.5)) hue-rotate(15deg)";
-        }
+          if (enhanceDetailsChecked) {
+              filters += " brightness(110%) blur(0.25px)";
+          }
 
-        videoPlayer.style.filter = filters || "none";
-    }
+          // Optimize Background filters (using CSS filters):
+          if (backgroundOptChecked) {
+            filters += " contrast(150%) drop-shadow(0 0 5px rgba(255, 0, 0, 0.5)) hue-rotate(15deg)";
+          }
 
-    // Function to apply or remove background optimization effects
-    function applyBackgroundOptimization(isChecked) {
-      if (isChecked) {
-          // Apply background optimization effects
-          console.log("Added be effects")
-          videoPlayer.classList.add("black-transparency", "white-transparency", "non-background-white", "warm-shadow", "saturated-element", "yellow-shadow");
-      } else {
-          // Remove background optimization effects
-          console.log("Removed be effects")
-          videoPlayer.classList.remove("black-transparency", "white-transparency", "non-background-white", "warm-shadow", "saturated-element", "yellow-shadow");
+          videoPlayer.style.filter = filters || "none";
       }
-    }
-  </script>
+
+      // Function to apply or remove background optimization effects
+      function applyBackgroundOptimization(isChecked) {
+        if (isChecked) {
+            // Apply background optimization effects
+            console.log("Added be effects")
+            videoPlayer.classList.add("black-transparency", "white-transparency", "non-background-white", "warm-shadow", "saturated-element", "yellow-shadow");
+        } else {
+            // Remove background optimization effects
+            console.log("Removed be effects")
+            videoPlayer.classList.remove("black-transparency", "white-transparency", "non-background-white", "warm-shadow", "saturated-element", "yellow-shadow");
+        }
+      }
+    </script>
+  </body>
 </html>

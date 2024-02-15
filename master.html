@@ -139,17 +139,19 @@
               </button>
           
               <!-- Modal -->
+              <!-- Information Modal -->
               <div id="infoModal" class="modal">
-                  <!-- Modal content -->
-                  <div class="modal-content">
-                      <span class="close">&times;</span>
-                      <h2>Video Controls Information</h2>
-                      <p><strong>Start Button:</strong> Starts playback of the video.</p>
-                      <p><strong>Optimize Color Button:</strong> Enhances the color contrast and saturation of the video.</p>
-                      <p><strong>Enhance Details Checkbox:</strong> Enhances the sharpness and clarity of the video.</p>
-                      <p><strong>Inverse Video:</strong> Inverses content in video by horizontally.</p>
-                      <p><strong>Optimize Background:</strong> Enhances background, affecting specific background colors and color tones.</p>
-                  </div>
+                <!-- Modal content -->
+                <div class="modal-content">
+                  <span class="close">&times;</span>
+                  <h2>Video Controls Information</h2>
+                  <p><strong>Start Button:</strong> Starts playback of the video.</p>
+                  <p><strong>Optimize Color Button:</strong> Enhances the color contrast and saturation of the video.</p>
+                  <p><strong>Enhance Details Checkbox:</strong> Enhances the sharpness and clarity of the video.</p>
+                  <p><strong>Inverse Video:</strong> Inverts content in video by horizontally.</p>
+                  <p><strong>Optimize Background:</strong> Enhances background, affecting specific background colors and color tones.</p>
+                  <p><strong>Master Page ID:</strong> <span id="masterPageID">Your Master Page ID goes here</span></p>
+                </div>
               </div>
             </div>
           </div>
@@ -165,282 +167,298 @@
         </div>
       </div>
     </main>
-  </body>
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io('/playerControls', { transports: ['websocket'] });
 
-    const videoFileInput = document.getElementById("videoFile");
-    const videoPlayer = document.getElementById("videoPlayer");
-    const volumeControl = document.getElementById("volumeControl");
-    const uploadButton = document.getElementById("uploadButton");
-    const youtubeForm = document.getElementById("youtubeForm");
-    const youtubeUrlInput = document.getElementById("youtubeUrlInput");
-    const youtubeUrlStream = document.getElementById("streamButton");
-    const stopButton = document.getElementById("stopButton");
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const videoFileInput = document.getElementById("videoFile");
+      const videoPlayer = document.getElementById("videoPlayer");
+      const volumeControl = document.getElementById("volumeControl");
+      const uploadButton = document.getElementById("uploadButton");
+      const youtubeForm = document.getElementById("youtubeForm");
+      const youtubeUrlInput = document.getElementById("youtubeUrlInput");
+      const youtubeUrlStream = document.getElementById("streamButton");
+      const stopButton = document.getElementById("stopButton");
 
-    //Video Additional Effects:
-    const toggleInversionCheckbox = document.getElementById("optimizeButton");
-    const enhanceDetailsCheckbox = document.getElementById("enhanceDetailsCheckbox");
-    const optimizeColorButton = document.getElementById("optimizeColorButton");
-    const optimizeBackgroundCheckbox = document.getElementById("optimizeBackground");
+      //Video Additional Effects:
+      const toggleInversionCheckbox = document.getElementById("optimizeButton");
+      const enhanceDetailsCheckbox = document.getElementById("enhanceDetailsCheckbox");
+      const optimizeColorButton = document.getElementById("optimizeColorButton");
+      const optimizeBackgroundCheckbox = document.getElementById("optimizeBackground");
 
-    // Get the modal and buttons
-    const modal = document.getElementById("infoModal");
-    const infoButton = document.getElementById("btn_information");
-    const closeButton = document.getElementsByClassName("close")[0];
+      // Get the modal and buttons
+      const modal = document.getElementById("infoModal");
+      const infoButton = document.getElementById("btn_information");
+      const closeButton = document.getElementsByClassName("close")[0];
 
-    let loopEnabled = false;
-    let optimizeColorChecked = false;
-    let enhanceDetailsChecked = false;
-    let backgroundOptimizeChecked = false;
+      let loopEnabled = false;
+      let optimizeColorChecked = false;
+      let enhanceDetailsChecked = false;
+      let backgroundOptimizeChecked = false;
 
-    //MASTER LOAD:
-    // Function to parse the query parameter and show/hide input elements accordingly
-    function parseQueryParameter() {
-        const queryString = window.location.search;
-        const urlParams = new URLSearchParams(queryString);
-        const type = urlParams.get('type');
+      //MASTER LOAD:
+      // Generate ID:
+      const masterPageID = generateUniqueID();
+      // Connect to the playerControls namespace
+      const socket = io('/playerControls', { query: { userID: masterPageID } });
+      
+      // Update the master page ID in the info modal after the DOM is fully loaded
+      document.addEventListener('DOMContentLoaded', () => {
+        console.log(masterPageID)
+        const masterPageIDParagraph = document.getElementById("infoModal").getElementsByTagName("p")[6];
+        masterPageIDParagraph.innerHTML = `<strong>Master Page ID:</strong> ${masterPageID}`;
+      });
 
-        // Show/hide input elements based on the type parameter
-        if (type === 'local') {
-            videoFileInput.style.display = 'block';
-            youtubeUrlInput.style.display = 'none';
-            //Tweak buttons
-            uploadButton.style.display = 'block';
-            youtubeUrlStream.style.display = 'none';
-            console.log("loaded local")
-        } else if (type === 'url') {
-            videoFileInput.style.display = 'none';
-            youtubeUrlInput.style.display = 'block';
-             //Tweak buttons
-            youtubeUrlStream.style.display = 'block';
-            uploadButton.style.display = 'none';
-            console.log("loaded url")
+      function generateUniqueID() {
+        return Math.random().toString(36).substring(2) + Date.now().toString(36);
+      }
+
+      //MASTER FUNCTIONS:
+      // Function to parse the query parameter and show/hide input elements accordingly
+      function parseQueryParameter() {
+          const queryString = window.location.search;
+          const urlParams = new URLSearchParams(queryString);
+          const type = urlParams.get('type');
+
+          // Show/hide input elements based on the type parameter
+          if (type === 'local') {
+              videoFileInput.style.display = 'block';
+              youtubeUrlInput.style.display = 'none';
+              //Tweak buttons
+              uploadButton.style.display = 'block';
+              youtubeUrlStream.style.display = 'none';
+              console.log("loaded local")
+          } else if (type === 'url') {
+              videoFileInput.style.display = 'none';
+              youtubeUrlInput.style.display = 'block';
+              //Tweak buttons
+              youtubeUrlStream.style.display = 'block';
+              uploadButton.style.display = 'none';
+              console.log("loaded url")
+          }
+      }
+
+      // Call the function to parse the query parameter when the page loads
+      window.onload = function() {
+          parseQueryParameter();
+      };
+
+      //EMITTERS:
+
+      // Function to toggle loop feature
+      toggleLoopButton.addEventListener('click', () => {
+        loopEnabled = !loopEnabled;
+        videoPlayer.loop = loopEnabled;
+      });
+
+
+      // Handle YouTube video streaming form submission
+      youtubeUrlStream.addEventListener("click", async (event) => {
+        event.preventDefault();
+        const youtubeUrl = youtubeUrlInput.value;
+
+        try {
+          // Extract video ID from YouTube URL
+          const videoId = extractVideoId(youtubeUrl);
+          // Fetch YouTube video from server
+          const response = await fetch(`/youtube/${videoId}`);
+          if (!response.ok) {
+            throw new Error("Failed to fetch YouTube video");
+          }
+          // Set video source
+          videoPlayer.src = URL.createObjectURL(await response.blob());
+          // Play video
+          videoPlayer.play();
+
+          // Send the video URL to the puppet page
+          sendVideoUrl(youtubeUrl);
+        } catch (error) {
+          console.error("Failed to stream YouTube video:", error);
         }
-    }
+      });
 
-    // Call the function to parse the query parameter when the page loads
-    window.onload = function() {
-        parseQueryParameter();
-    };
+      // Function to send video URL to puppet page
+      function sendVideoUrl(url) {
+        socket.emit("video url", url);
+      }
 
-    //EMITTERS:
-
-    // Function to toggle loop feature
-    toggleLoopButton.addEventListener('click', () => {
-      loopEnabled = !loopEnabled;
-      videoPlayer.loop = loopEnabled;
-    });
+      // Function to extract video ID from YouTube URL
+      function extractVideoId(url) {
+        const match = url.match(/[?&]v=([^&]+)/);
+        return match && match[1];
+      }
 
 
-    // Handle YouTube video streaming form submission
-    youtubeUrlStream.addEventListener("click", async (event) => {
-      event.preventDefault();
-      const youtubeUrl = youtubeUrlInput.value;
+      videoPlayer.addEventListener('play', () => {
+        socket.emit("player start", videoPlayer.play())
+      });
 
-      try {
-        // Extract video ID from YouTube URL
-        const videoId = extractVideoId(youtubeUrl);
-        // Fetch YouTube video from server
-        const response = await fetch(`/youtube/${videoId}`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch YouTube video");
+      videoPlayer.addEventListener("pause", () =>
+        socket.emit("player pause", videoPlayer.pause())
+      );
+
+      videoPlayer.addEventListener("seeking", () =>
+        socket.emit("player timeupdate", videoPlayer.currentTime)
+      );
+
+      volumeControl.addEventListener("input", () =>
+        socket.emit("player volumeupdate", volumeControl.value)
+      );
+
+      uploadButton.addEventListener("click", function () {
+        const file = videoFileInput.files[0];
+        if (file) {
+            const formData = new FormData();
+            formData.append("video", file);
+    
+            fetch("/upload", {
+                method: "POST",
+                body: formData,
+            })
+                .then((response) => {
+                    if (response.ok) {
+                        // Emit the uploaded video URL to the puppet page
+                        socket.emit("video uploaded", videoPlayer.src);
+                        if (!videoPlayer.paused) {
+                            socket.emit("player start", videoPlayer.play());
+                        }
+                        console.log("Video uploaded successfully!");
+                    } else {
+                        console.error("Failed to upload video.");
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error uploading video:", error);
+                });
+        } else {
+            console.error("No file selected.");
         }
-        // Set video source
-        videoPlayer.src = URL.createObjectURL(await response.blob());
-        // Play video
-        videoPlayer.play();
+    });
+    
 
-        // Send the video URL to the puppet page
-        sendVideoUrl(youtubeUrl);
-      } catch (error) {
-        console.error("Failed to stream YouTube video:", error);
+      // Функция для обновления видеоплеера
+      function updateVideoPlayer(file) {
+        const url = URL.createObjectURL(file);
+        videoPlayer.src = url;
+        console.log(videoPlayer.src);
       }
-    });
 
-    // Function to send video URL to puppet page
-    function sendVideoUrl(url) {
-      socket.emit("video url", url);
-    }
+      // Обработчик события загрузки страницы
+      window.addEventListener("DOMContentLoaded", function () {
+        // Вызываем функцию updateVideoPlayer при загрузке страницы, если есть выбранный файл
+        if (videoFileInput.files[0]) {
+          updateVideoPlayer(videoFileInput.files[0]);
+        }
+      });
 
-    // Function to extract video ID from YouTube URL
-    function extractVideoId(url) {
-      const match = url.match(/[?&]v=([^&]+)/);
-      return match && match[1];
-    }
+      // Добавляем обработчик события change для input type="file"
+      videoFileInput.addEventListener("change", function () {
+        const file = this.files[0];
+        updateVideoPlayer(file);
+      });
 
-
-    videoPlayer.addEventListener('play', () => {
-      socket.emit("player start", videoPlayer.play())
-    });
-
-    videoPlayer.addEventListener("pause", () =>
-      socket.emit("player pause", videoPlayer.pause())
-    );
-
-    videoPlayer.addEventListener("seeking", () =>
-      socket.emit("player timeupdate", videoPlayer.currentTime)
-    );
-
-    volumeControl.addEventListener("input", () =>
-      socket.emit("player volumeupdate", volumeControl.value)
-    );
-
-    uploadButton.addEventListener("click", function () {
-      const file = videoFileInput.files[0];
-      if (file) {
-          const formData = new FormData();
-          formData.append("video", file);
-  
-          fetch("/upload", {
-              method: "POST",
-              body: formData,
-          })
-              .then((response) => {
-                  if (response.ok) {
-                      // Emit the uploaded video URL to the puppet page
-                      socket.emit("video uploaded", videoPlayer.src);
-                      if (!videoPlayer.paused) {
-                          socket.emit("player start", videoPlayer.play());
-                      }
-                      console.log("Video uploaded successfully!");
-                  } else {
-                      console.error("Failed to upload video.");
-                  }
-              })
-              .catch((error) => {
-                  console.error("Error uploading video:", error);
-              });
-      } else {
-          console.error("No file selected.");
-      }
-  });
-  
-
-    // Функция для обновления видеоплеера
-    function updateVideoPlayer(file) {
-      const url = URL.createObjectURL(file);
-      videoPlayer.src = url;
-      console.log(videoPlayer.src);
-    }
-
-    // Обработчик события загрузки страницы
-    window.addEventListener("DOMContentLoaded", function () {
-      // Вызываем функцию updateVideoPlayer при загрузке страницы, если есть выбранный файл
-      if (videoFileInput.files[0]) {
-        updateVideoPlayer(videoFileInput.files[0]);
-      }
-    });
-
-    // Добавляем обработчик события change для input type="file"
-    videoFileInput.addEventListener("change", function () {
-      const file = this.files[0];
-      updateVideoPlayer(file);
-    });
-
-    // Event listener for the STOP button
-    stopButton.addEventListener("click", () => {
-      // Stop the video playback on both pages
-      socket.emit("stop");
-      videoPlayer.pause();
-      videoPlayer.currentTime = 0;
-    });
+      // Event listener for the STOP button
+      stopButton.addEventListener("click", () => {
+        // Stop the video playback on both pages
+        socket.emit("stop");
+        videoPlayer.pause();
+        videoPlayer.currentTime = 0;
+      });
 
 
-    //VIDEO PARAMETERS:
-    //Inversion:
-    //Toggle inversion checkbox event listener
-    toggleInversionCheckbox.addEventListener("change", () => {
-      // Emit the inversion status to the server
-      socket.emit("toggle inversion");
-      // Apply the inversion effect locally on the master page
-      if (toggleInversionCheckbox.checked) {
-        videoPlayer.style.transform = "scaleX(-1) translateX(1%)";
-      } else {
-        videoPlayer.style.transform = "scaleX(1) translateX(0)";
-      }
-    });
+      //VIDEO PARAMETERS:
+      //Inversion:
+      //Toggle inversion checkbox event listener
+      toggleInversionCheckbox.addEventListener("change", () => {
+        // Emit the inversion status to the server
+        socket.emit("toggle inversion");
+        // Apply the inversion effect locally on the master page
+        if (toggleInversionCheckbox.checked) {
+          videoPlayer.style.transform = "scaleX(-1) translateX(1%)";
+        } else {
+          videoPlayer.style.transform = "scaleX(1) translateX(0)";
+        }
+      });
 
-    // Event listener for the "Optimize Color" checkbox
-    optimizeColorButton.addEventListener("change", () => {
-        socket.emit("optimize color");
-        // Update the state of the "Optimize Color" checkbox
-        optimizeColorChecked = optimizeColorButton.checked;
-        // Apply filters based on the state of both checkboxes
-        applyFilters();
-    });
+      // Event listener for the "Optimize Color" checkbox
+      optimizeColorButton.addEventListener("change", () => {
+          socket.emit("optimize color");
+          // Update the state of the "Optimize Color" checkbox
+          optimizeColorChecked = optimizeColorButton.checked;
+          // Apply filters based on the state of both checkboxes
+          applyFilters();
+      });
 
-    // Event listener for the "Enhance Details" checkbox
-    enhanceDetailsCheckbox.addEventListener("change", () => {
+      // Event listener for the "Enhance Details" checkbox
+      enhanceDetailsCheckbox.addEventListener("change", () => {
+          // Emit the enhance details event to the server along with the checkbox state
+          socket.emit("toggle enhance details", enhanceDetailsCheckbox.checked);
+          // Update the state of the "Enhance Details" checkbox
+          enhanceDetailsChecked = enhanceDetailsCheckbox.checked;
+          // Apply filters based on the state of both checkboxes
+          applyFilters();
+      });
+
+      optimizeBackgroundCheckbox.addEventListener("change", () => {
         // Emit the enhance details event to the server along with the checkbox state
-        socket.emit("toggle enhance details", enhanceDetailsCheckbox.checked);
+        socket.emit("toggle back details", optimizeBackgroundCheckbox.checked);
         // Update the state of the "Enhance Details" checkbox
-        enhanceDetailsChecked = enhanceDetailsCheckbox.checked;
+        backgroundOptimizeChecked = optimizeBackgroundCheckbox.checked;
         // Apply filters based on the state of both checkboxes
         applyFilters();
-    });
+      });
 
-    optimizeBackgroundCheckbox.addEventListener("change", () => {
-      // Emit the enhance details event to the server along with the checkbox state
-      socket.emit("toggle back details", optimizeBackgroundCheckbox.checked);
-      // Update the state of the "Enhance Details" checkbox
-      backgroundOptimizeChecked = optimizeBackgroundCheckbox.checked;
-      // Apply filters based on the state of both checkboxes
-      applyFilters();
-    });
-
-    // Helper function to identify shadows (replace with your logic)
-    function isShadow(pixel) {
-      return pixel.color === "#000000" && pixel.alpha < 1;
-    }
-
-
-    // Function to apply filters based on the state of filter checkboxes
-    function applyFilters() {
-      let filters = "";
-
-      if (optimizeColorChecked) {
-          // Apply filters for optimizing color
-          filters += " contrast(130%) saturate(130%)";
+      // Helper function to identify shadows (replace with your logic)
+      function isShadow(pixel) {
+        return pixel.color === "#000000" && pixel.alpha < 1;
       }
 
-      if (enhanceDetailsChecked) {
-          // Apply filters for enhancing details
-          // Adjust as needed based on your specific enhancements
-          filters += " brightness(110%) blur(0.25px)";
-      }
 
-      // Optimize Background filters (using CSS filters):
-      if (backgroundOptimizeChecked) {
-        filters += " contrast(150%) drop-shadow(0 0 5px rgba(255, 0, 0, 0.5)) hue-rotate(15deg)";
-      }
+      // Function to apply filters based on the state of filter checkboxes
+      function applyFilters() {
+        let filters = "";
 
-      // Set the combined filters to the video player
-      videoPlayer.style.filter = filters || "none";
-    }
-
-    // Initial call to apply filters based on the initial state of checkboxes
-    applyFilters();
-
-    // Event listener for clicking the info button
-    infoButton.addEventListener("click", () => {
-        modal.style.display = "block";
-    });
-
-    // Event listener for clicking the close button or outside the modal
-    closeButton.addEventListener("click", () => {
-        modal.style.display = "none";
-    });
-
-    window.addEventListener("click", (event) => {
-        if (event.target === modal) {
-            modal.style.display = "none";
+        if (optimizeColorChecked) {
+            // Apply filters for optimizing color
+            filters += " contrast(130%) saturate(130%)";
         }
-    });
 
-    //LISTENERS:
-    socket.on("file uploaded", () => console.log("file uploaded"));
+        if (enhanceDetailsChecked) {
+            // Apply filters for enhancing details
+            // Adjust as needed based on your specific enhancements
+            filters += " brightness(110%) blur(0.25px)";
+        }
 
-  </script>
+        // Optimize Background filters (using CSS filters):
+        if (backgroundOptimizeChecked) {
+          filters += " contrast(150%) drop-shadow(0 0 5px rgba(255, 0, 0, 0.5)) hue-rotate(15deg)";
+        }
+
+        // Set the combined filters to the video player
+        videoPlayer.style.filter = filters || "none";
+      }
+
+      // Initial call to apply filters based on the initial state of checkboxes
+      applyFilters();
+
+      // Event listener for clicking the info button
+      infoButton.addEventListener("click", () => {
+          modal.style.display = "block";
+      });
+
+      // Event listener for clicking the close button or outside the modal
+      closeButton.addEventListener("click", () => {
+          modal.style.display = "none";
+      });
+
+      window.addEventListener("click", (event) => {
+          if (event.target === modal) {
+              modal.style.display = "none";
+          }
+      });
+
+      //LISTENERS:
+      socket.on("file uploaded", () => console.log("file uploaded"));
+
+    </script>
+  </body>
 </html>

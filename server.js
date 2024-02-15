@@ -12,7 +12,8 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server);
 const PORT = 3000;
-const namespace = io.of("/playerControls");
+
+const userSockets = new Map();
 
 app.use(cors());
 
@@ -166,50 +167,76 @@ let isVideoInverted = false;
 let isColorOptimized = false;
 
 // Обработчик подключения к каналу playerControls
-namespace.on('connection', (socket) => {
+io.of('/playerControls').on('connection', (socket) => {
    console.log('A user connected to playerControls');
+
+   // Add the socket to the userSockets map when a master page connects
+   if (socket.handshake.query.userID) {
+      userSockets.set(socket.handshake.query.userID, socket);
+      socket.masterSocketID = socket.handshake.query.userID;
+   }
 
    // Event listener for disconnecting
    socket.on('disconnect', () => {
       console.log('A user disconnected');
+      userSockets.delete(socket.handshake.query.userID);
    });
+
+   socket.on('connectToMaster', (userID) => {
+      // Check if the userID exists in the Map object
+      if (userSockets.has(userID)) {
+        // Connect the puppet page to the master page
+        const masterSocket = userSockets.get(userID);
+        masterSocket.puppets = masterSocket.puppets || new Set();
+        masterSocket.puppets.add(socket.id);
+        socket.masterSocketID = userID;
+        socket.join(userID); // Join the socket to the master's room
+        masterSocket.emit('puppetConnected', socket.id);
+        socket.emit('masterConnected', masterSocket.id);
+        console.log(masterSocket.puppets)
+      } else {
+        // If the userID doesn't exist, send an error message
+        socket.emit('error', 'No master page found with the provided userID');
+      }
+   });
+
 
    // Обработчик события "player start"
    socket.on("player start", () => {
       console.log("server socked player started")
       // Отправить событие "play" всем клиентам в канале playerControls
-      socket.broadcast.emit("play");
+      socket.to(socket.masterSocketID).emit('play');
    });
 
    // Обработчик события "player pause"
    socket.on("player pause", () => {
       // Отправить событие "pause" всем клиентам в канале playerControls
-      socket.broadcast.emit("pause");
+      socket.to(socket.masterSocketID).emit("pause");
    });
 
    // Обработчик события "stop"
    socket.on("stop", () => {
       // Отправить событие "stop" всем клиентам в канале playerControls
-      socket.broadcast.emit("stop");
+      socket.to(socket.masterSocketID).emit("stop");
    });
 
    socket.on("player timeupdate", (time) => {
-      socket.broadcast.emit("timeupdate", time);
+      socket.to(socket.masterSocketID).emit("timeupdate", time);
    })
 
    socket.on("player volumeupdate", (volume) => {
-      socket.broadcast.emit("volumeupdate", volume);
+      socket.to(socket.masterSocketID).emit("volumeupdate", volume);
    })
 
    // Handle receiving video URL from controller page
    socket.on("video url", (url) => {
       // Broadcast the received URL to all clients (including the puppet page)
-      socket.broadcast.emit("video url", url);
+      socket.to(socket.masterSocketID).emit("video url", url);
    });
 
    // Handle receiving uploaded video URL from master page and emit it to puppet page
    socket.on("video uploaded", (url) => {
-      socket.broadcast.emit("video uploaded", url);
+      socket.to(socket.masterSocketID).emit("video uploaded", url);
    });
 
    //VIDEO PARAMETERS:
