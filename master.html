@@ -21,36 +21,69 @@
           <div class="form_search">
             <div class="info">
               <!-- Form to upload local videos -->
-              <input type="file" name="video" id="videoFile" accept="video/*" style="display: none;"/>
-              <button class="btn_submit" id="uploadButton">Запустити на екран</button>
+              <label for="search-name" class="input_label">
+                Обрати відео
+                <div class="container_change">
+                  <input class="input_search"
+                    type="file" 
+                    name="video" 
+                    id="videoFile" 
+                    accept="video/*" 
+                    style="display: none;"
+                  />
+                  <svg class="input__loupe">
+                    <use
+                      href="../img/Loupe.svg#loupe"
+                      width="20"
+                      height="20"
+                    ></use>
+                  </svg>
+                </div>
+              </label>
               <!-- Form to stream YouTube videos -->
               <form id="youtubeForm" style="display: none;">
                 <input type="text" id="youtubeUrlInput" placeholder="Enter YouTube URL" />
-                <button class="btn_submit" type="submit">Запустити на екран</button>
               </form>
-          
-              <!-- Volume control -->
-              <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="1" />
-          
-              <!-- Stop button -->
-              <button id="stopButton">STOP</button>
           
               <!-- VIDEO EFFECTS BUTTONS:-->
               <p class="text_op">Параметри відео</p>
-              <label for="optimizeButton">Optimize Video</label>
-              <input type="checkbox" id="optimizeButton">
-          
-              
-              <label for="enhanceDetailsCheckbox">Enhance Details</label>
-              <input type="checkbox" id="enhanceDetailsCheckbox">
-          
-              <label for="optimizeColorButton">Optimize Color</label>
-              <input type="checkbox" id="optimizeColorButton">
-          
-              <label for="optimizeBackground">Optimize Background</label>
-              <input type="checkbox" id="optimizeBackground">
 
+              <label class="label_form" for="optimizeButton">
+                Оптимізувати відео
+                <span class="btn_check">
+                    <input type="checkbox" id="optimizeButton" class="input_checkbox">
+                    <span class="switching"></span>
+                </span>
+              </label>
+
+              <label class="label_form" for="enhanceDetailsCheckbox">
+                Деталізувати
+                <span class="btn_check">
+                    <input type="checkbox" id="enhanceDetailsCheckbox" class="input_checkbox">
+                    <span class="switching"></span>
+                </span>
+              </label>
+
+              <label class="label_form" for="optimizeColorButton">
+                Оптимізувати колір
+                <span class="btn_check">
+                    <input type="checkbox" id="optimizeColorButton" class="input_checkbox">
+                    <span class="switching"></span>
+                </span>
+              </label>
+
+              <label class="label_form" for="optimizeBackground">
+                Оптимізувати фон
+                <span class="btn_check">
+                    <input type="checkbox" id="optimizeBackground" class="input_checkbox">
+                    <span class="switching"></span>
+                </span>
+              </label>
+              
               <p class="text_op">Керувати відтворенням</p>
+              <!-- Volume control -->
+              <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="1" />
+
               <!-- Endlessly Loop Video button-->
               <label class="label_form" for="">
                 Зациклити відео
@@ -58,9 +91,36 @@
                   <span class="switching"></span>
                 </span>
               </label>
+
+              <!-- Stop button -->
+              <label class="label_form" for="">
+                Зупинити відео примусово
+                <span class="btn_check" id="stopButton">
+                  <span class="switching"></span>
+                </span>
+              </label>
+
+              <!-- Upload / Steam Video-->
+              <label class="label_form" for="">
+                Вивести на екран
+                <button class="btn_submit" 
+                  id="uploadButton"
+                  style="display: none;">
+                  Запустити на екран
+                </button>
+
+                <button class="btn_submit" 
+                  id="streamButton" 
+                  type="submit"
+                  style="display: none;">
+                  Запустити на екран
+                </button>
+              </label>
           
               <!-- Modal -->
-              <button id="btn_information">Information</button>
+              <button class = "btn_information" id="btn_information">
+                Інформація
+              </button>
           
               <!-- Modal -->
               <div id="infoModal" class="modal">
@@ -96,6 +156,7 @@
     const uploadButton = document.getElementById("uploadButton");
     const youtubeForm = document.getElementById("youtubeForm");
     const youtubeUrlInput = document.getElementById("youtubeUrlInput");
+    const youtubeUrlStream = document.getElementById("streamButton");
     const stopButton = document.getElementById("stopButton");
 
     //Video Additional Effects:
@@ -125,11 +186,16 @@
         if (type === 'local') {
             videoFileInput.style.display = 'block';
             youtubeForm.style.display = 'none';
+            //Tweak buttons
+            uploadButton.style.display = 'block';
+            youtubeUrlStream.style.display = 'none';
             console.log("loaded local")
         } else if (type === 'url') {
             videoFileInput.style.display = 'none';
-            uploadButton.style.display = 'none';
             youtubeForm.style.display = 'block';
+             //Tweak buttons
+            youtubeUrlStream.style.display = 'block';
+            uploadButton.style.display = 'none';
             console.log("loaded url")
         }
     }
