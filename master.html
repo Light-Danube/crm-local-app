@@ -106,14 +106,12 @@
                 <button class="btn_submit" 
                   id="uploadButton"
                   style="display: none;">
-                  Запустити на екран
                 </button>
 
                 <button class="btn_submit" 
                   id="streamButton" 
                   type="submit"
                   style="display: none;">
-                  Запустити на екран
                 </button>
               </label>
           
@@ -217,7 +215,7 @@
 
 
     // Handle YouTube video streaming form submission
-    youtubeForm.addEventListener("submit", async (event) => {
+    youtubeUrlStream.addEventListener("click", async (event) => {
       event.preventDefault();
       const youtubeUrl = youtubeUrlInput.value;
 
