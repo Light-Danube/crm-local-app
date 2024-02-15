@@ -107,29 +107,34 @@ app.get('/videofile/:filename', (req, res) => {
    }
 });
 
-app.post('/upload', upload.single('video'),  async (req, res) => {
+// Modify the upload endpoint to emit the event only to sockets associated with the master ID
+app.post('/upload', upload.single('video'), async (req, res) => {
    try {
-      if (req.file) {
-         // If a file is uploaded, emit "file uploaded" event to all clients
-         console.log("Video uploaded successfully.");
-         // Emit "file uploaded" event after the redirect
-         io.of("/playerControls").emit("file uploaded");
-         // Redirect to player.html with the uploaded file
-         res.redirect(`/video.html?video=${req.file.filename}`);
-      } else {
-         // If no file is uploaded, check for YouTube URL
-         const youtubeUrl = req.body.youtubeUrl;
-         if (youtubeUrl) {
-            // Redirect to video.html with YouTube URL as parameter
-            res.redirect(`/video.html?video=${youtubeUrl}`);
-         } else {
-            // Handle the case where neither file nor YouTube URL is provided
-            res.status(400).send('No file or YouTube URL provided');
-         }
-      }
+       const masterId = req.query.masterId; // Assuming you pass the master ID in the query parameters
+       console.log(masterId)
+       if (masterId && userSockets.has(masterId)) {
+           if (req.file) {
+               console.log("Video uploaded successfully.");
+               // Emit "file uploaded" event only to the master and its puppets
+               const masterSocket = userSockets.get(masterId);
+               masterSocket.puppets.forEach(puppetSocketId => {
+                   io.of('/playerControls').sockets.get(puppetSocketId).emit("file uploaded");
+               });
+               res.redirect(`/video.html?video=${req.file.filename}`);
+           } else {
+               const youtubeUrl = req.body.youtubeUrl;
+               if (youtubeUrl) {
+                   res.redirect(`/video.html?video=${youtubeUrl}`);
+               } else {
+                   res.status(400).send('No file or YouTube URL provided');
+               }
+           }
+       } else {
+           res.status(404).send('Master ID not found or invalid');
+       }
    } catch (err) {
-      console.error('Error uploading:', err);
-      res.status(500).send('Error uploading');
+       console.error('Error uploading:', err);
+       res.status(500).send('Error uploading');
    }
 });
 
