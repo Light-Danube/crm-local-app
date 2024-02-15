@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="index.css" />
+    <title>Upload Video</title>
+  </head>
+  <body>
+    <header>
+      <div class="container">
+        <img
+          src="src/components/img/image_1.png"
+          alt="img not found"
+          class="logo"
+        />
+        <a
+          href="https://crm.ucreate.org.ua/"
+          class="header__link"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Посилання на сайт
+        </a>
+      </div>
+    </header>
+    <main>
+      <div class="container">
+        <div class="container_search">
+          <form action="" class="form_search">
+            <div class="info">
+              <label for="search-name" class="input_label">
+                Обрати відео
+                <div class="container_change">
+                  <input
+                    class="input_search"
+                    type="file"
+                    name="search-name"
+                    placeholder=""
+                    required
+                  />
+                  <svg class="input__loupe">
+                    <use
+                      href="../img/Loupe.svg#loupe"
+                      width="20"
+                      height="20"
+                    ></use>
+                  </svg>
+                  <button class="btn_add">Додати</button>
+                </div>
+                <Loupe class="loupe_input" />
+              </label>
+              <p class="text_op">Параметри відео</p>
+              <label class="label_form" for="">
+                Оптимізувати відео
+                <span class="btn_check">
+                  <span class="switching"></span>
+                </span>
+              </label>
+              <label class="label_form" for="">
+                Деталізувати
+                <span class="btn_check">
+                  <span class="switching"></span>
+                </span>
+              </label>
+              <label class="label_form" for="">
+                Оптимізувати колір
+                <span class="btn_check">
+                  <span class="switching"></span>
+                </span>
+              </label>
+              <label class="label_form" for="">
+                Оптимізувати фон
+                <span class="btn_check">
+                  <span class="switching"></span>
+                </span>
+              </label>
+              <p class="text_op">Керувати відтворенням</p>
+              <label class="label_form" for="">
+                Зациклити відео
+                <span class="btn_check">
+                  <span class="switching"></span>
+                </span>
+              </label>
+              <label class="label_form" for="">
+                Вивести на екран
+                <button class="btn_submit">Запустити</button>
+              </label>
+              <button class="btn_information">Інформація</button>
+            </div>
+          </form>
+          <div class="line"></div>
+          <div class="video_box"></div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>
