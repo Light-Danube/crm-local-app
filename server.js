@@ -185,6 +185,7 @@ io.of('/playerControls').on('connection', (socket) => {
    // **Crucial fix:** Store the socket's user ID (if provided)
    if (socket.handshake.query.userID) {
       userSockets.set(socket.handshake.query.userID, socket);
+      socket.masterSocketID = socket.handshake.query.userID;
    }
 
    socket.on('connectToMaster', (userID) => {
@@ -196,7 +197,9 @@ io.of('/playerControls').on('connection', (socket) => {
         masterSocket.puppets.add(socket.id);
         socket.masterSocketID = userID;
         socket.join(userID); // Join the socket to the master's room
+        masterSocket.emit('puppetConnected', socket.id);
         socket.emit('masterConnected', masterSocket.id);
+        console.log(masterSocket.puppets)
       } else {
         // If the userID doesn't exist, send an error message
         socket.emit('error', 'No master page found with the provided userID');
@@ -209,48 +212,38 @@ io.of('/playerControls').on('connection', (socket) => {
       const time = new Date().toLocaleTimeString();
       const logMessage = `** ${date} ${time} - Пользователь ${socket.id} отключился`;
       logStream.write(`${logMessage}\n`);
-  
+    
       // **Проверка, является ли сокет мастером:**
       if (userSockets.has(socket.id) && userSockets.get(socket.id).puppets) {
         // **Логирование:**
         logStream.write(`** ${date} ${time} - Удаление марионеток мастера ${socket.id}\n`);
-  
+    
         // **Удаление всех марионеток мастера:**
         for (const puppetId of userSockets.get(socket.id).puppets) {
           userSockets.delete(puppetId);
-  
+    
           // **Логирование:**
           logStream.write(`** ${date} ${time} - Удаление марионетки ${puppetId}\n`);
         }
+    
+        // **Удаление мастера из userSockets:**
+        userSockets.delete(socket.id);
       }
-  
+    
       // **Удаление марионетки из списка мастера:**
       if (socket.masterSocketID) {
         const masterSocket = userSockets.get(socket.masterSocketID);
         if (masterSocket && masterSocket.puppets) {
           masterSocket.puppets.delete(socket.id);
-  
+    
           // **Логирование:**
           logStream.write(`** ${date} ${time} - Удаление марионетки ${socket.id} из списка мастера ${masterSocket.id}\n`);
         }
       }
-
-      // **Удаление мастера из списка подключений:**
-      if (userSockets.has(socket.id) && userSockets.get(socket.id).puppets) {
-         // Удаляем мастера из списка подключений
-         userSockets.delete(socket.id);
-      }
-  
-      // **Удаление сокета из userSockets:**
-      // Удаляем сокет, если он не является мастером
-      // или если у него нет марионеток
-      if (!socket.masterSocketID || !userSockets.get(socket.id).puppets) {
-         userSockets.delete(socket.id);
-      }
-  
+    
       // **Логирование:**
       logStream.write(`** ${date} ${time} - Удаление сокета ${socket.id} из userSockets\n`);
-   });
+   });    
 
 
    // Обработчик события "player start"
