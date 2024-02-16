@@ -181,12 +181,6 @@ io.of('/playerControls').on('connection', (socket) => {
       socket.masterSocketID = socket.handshake.query.userID;
    }
 
-   // Event listener for disconnecting
-   socket.on('disconnect', () => {
-      console.log('A user disconnected');
-      userSockets.delete(socket.id);
-   });
-
    socket.on('connectToMaster', (userID) => {
       // Check if the userID exists in the Map object
       if (userSockets.has(userID)) {
@@ -280,8 +274,20 @@ io.of('/playerControls').on('connection', (socket) => {
   }
 
   socket.on('disconnect', () => {
-   logStream.write(`** Пользователь ${socket.id} отключился (${new Date().toLocaleString()})\n`);
-   });
+   // Проверка, существует ли сокет в userSockets
+   if (userSockets.has(socket.id)) {
+     // Вывод информации о дисконнекте в лог-файл
+     logStream.write(`** Пользователь ${socket.id} отключился (${new Date().toLocaleString()})\n`);
+ 
+     // Удаление сокета из userSockets
+     userSockets.delete(socket.id);
+ 
+     // Если у мастера нет марионеток, удалить его из userSockets
+     if (masterSocket.puppets && masterSocket.puppets.size === 0) {
+       userSockets.delete(masterSocket.id);
+     }
+   }
+ });
 
 });
 
