@@ -165,6 +165,12 @@ app.get('/youtube/:videoId', async (req, res) => {
 let isVideoInverted = false;
 let isColorOptimized = false;
 
+//Added logging values:
+const date = new Date().toLocaleDateString().replace(/\//g, '-');
+const logFileName = `connections-${date}.log`;
+
+const logStream = fs.createWriteStream(logFileName, { flags: 'a' });
+
 // Обработчик подключения к каналу playerControls
 io.of('/playerControls').on('connection', (socket) => {
    console.log('A user connected to playerControls');
@@ -178,7 +184,7 @@ io.of('/playerControls').on('connection', (socket) => {
    // Event listener for disconnecting
    socket.on('disconnect', () => {
       console.log('A user disconnected');
-      userSockets.delete(socket.handshake.query.userID);
+      userSockets.delete(socket.id);
    });
 
    socket.on('connectToMaster', (userID) => {
@@ -262,6 +268,20 @@ io.of('/playerControls').on('connection', (socket) => {
    // Emit the enhance details status to all clients (including puppet page)
    socket.broadcast.emit("background optimization status", isChecked);
   });
+
+
+  // Вывод списка подключений при каждом новом подключении
+  logStream.write(`** Текущие подключения (${new Date().toLocaleString()}):\n`);
+  for (const [masterId, masterSocket] of userSockets.entries()) {
+    logStream.write(`- Мастер: ${masterSocket.id}\n`);
+    if (masterSocket.puppets) {
+      logStream.write(`  - Марионетки: ${Array.from(masterSocket.puppets)}\n`);
+    }
+  }
+
+  socket.on('disconnect', () => {
+   logStream.write(`** Пользователь ${socket.id} отключился (${new Date().toLocaleString()})\n`);
+   });
 
 });
 
