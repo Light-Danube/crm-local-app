@@ -7,6 +7,7 @@ const { Server } = require("socket.io");
 const cors = require('cors');
 
 const ytdl = require('ytdl-core');
+const sanitizeFilename = require('sanitize-filename');
 
 const app = express();
 const server = createServer(app);
@@ -135,6 +136,14 @@ app.post('/upload', upload.single('video'), async (req, res) => {
 // Статическая директория для доступа к загруженным видео файлам
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Function to sanitize a filename, replacing invalid characters with underscores
+function sanitizeFilenameForCyrillic(title) {
+   // Define a regular expression to match invalid characters
+   const invalidCharsRegex = /[\\/:"*?<>|]/g;
+   // Replace invalid characters with underscores
+   return title.replace(invalidCharsRegex, '_');
+}
+
 // Получение YouTube видео и передача на клиент
 app.get('/youtube/:videoId', async (req, res) => {
    try {
@@ -151,8 +160,17 @@ app.get('/youtube/:videoId', async (req, res) => {
       // Получение информации о видео
       const info = await ytdl.getInfo(videoURL);
 
+      // Log the video title to debug
+      console.log('Video Title:', info.videoDetails.title);
+
+      // Санитизация названия видео для использования в имени файла
+      const sanitizedTitle = sanitizeFilename(info.videoDetails.title);
+
+      // Кодирование названия файла для обработки специальных символов
+      const encodedFilename = encodeURIComponent(sanitizedTitle);
+
       // Передача потока видео на клиент
-      res.header('Content-Disposition', `attachment; filename="${info.videoDetails.title}.mp4"`);
+      res.header('Content-Disposition', `attachment; filename="${encodedFilename}.mp4"`);
       ytdl(videoURL, {
          format: 'mp4',
       }).pipe(res);

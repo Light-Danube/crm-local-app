@@ -287,7 +287,6 @@
         return match && match[1];
       }
 
-
       videoPlayer.addEventListener('play', () => {
         socket.emit("player start", videoPlayer.play())
       });
