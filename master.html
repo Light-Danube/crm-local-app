@@ -29,7 +29,11 @@
           <div class="form_search">
             <div class="info">
               <!-- Form to upload local videos -->
-              <p class="text_op">Обрати відео</p>
+              <p class="text_op" ><strong>ПРОЧИТАЙТЕ ІНСТРУКЦІЮ!!!</strong></p>
+              <p class="text_op" id="showConnectionID">
+                Скопіююйте наступний код у вашу /video сторінку, щоб приєднатися до цього контролера.
+                Код: ${masterPageID}
+              </p>
               <label for="search-name" class="input_label">
                 <div class="container_change">
                   <input 
@@ -135,22 +139,30 @@
           
               <!-- Modal -->
               <button class = "btn_information" id="btn_information">
-                Інформація
+                Інструкція
               </button>
           
-              <!-- Modal -->
               <!-- Information Modal -->
               <div id="infoModal" class="modal">
                 <!-- Modal content -->
                 <div class="modal-content">
                   <span class="close">&times;</span>
-                  <h2>Video Controls Information</h2>
-                  <p><strong>Start Button:</strong> Starts playback of the video.</p>
-                  <p><strong>Optimize Color Button:</strong> Enhances the color contrast and saturation of the video.</p>
-                  <p><strong>Enhance Details Checkbox:</strong> Enhances the sharpness and clarity of the video.</p>
-                  <p><strong>Inverse Video:</strong> Inverts content in video by horizontally.</p>
-                  <p><strong>Optimize Background:</strong> Enhances background, affecting specific background colors and color tones.</p>
-                  <p><strong>Master Page ID:</strong> <span id="masterPageID">Your Master Page ID goes here</span></p>
+                  <h2>ІНСТРУКЦІЯ З ВИКОРИСТАННЯ</h2>
+                  <p><strong>Код Доступу:</strong> Додаток працює наступним чином: є сторінка-контролер та керована сторінка. 
+                    Для підлючення керованої сторінки до контролера вам необхідно скопіювати код у полі "КОД ДОСТУПУ" та вставити його у 
+                    текстове поле на керованій сторінці. Текстове поле викликається натиском на кнопку "Під'єднатися"
+                  </p>
+                  <p><strong>Трансляція</strong>:</strong> Після цього завантажте ваше відео з пристороя чи вставте посилання з ютубу, 
+                    далі натисність кнопку "вивести на екран" і керуйте за допомогою медіаплеера на сторінці-контролері (тобто цій);
+                    УВАГА! 
+                    - Деякі відео з ютубу можуть відтворюватися без звуку, це властивість ютубу. 
+                    - Також такі відео можуть здаватися "розсинхронизованими": просто розпочніть відео з початку.
+                  </p>
+                  <h2>ДОДАТКОВІ ЕФЕКТИ ВІДЕО</h2>
+                  <p><strong>Оптимізувати колір:</strong> Enhances the color contrast and saturation of the video.</p>
+                  <p><strong>Деталізувати:</strong> Enhances the sharpness and clarity of the video.</p>
+                  <p><strong>Оптимізувати Відео</strong> Перевертає по горизонталі та зміщує трішечки праворуч.</p>
+                  <p><strong>Оптимізувати Фон:</strong> Enhances background, affecting specific background colors and color tones.</p>
                 </div>
               </div>
             </div>
@@ -201,12 +213,12 @@
       // Connect to the playerControls namespace
       const socket = io('/playerControls', { query: { userID: masterPageID } });
       
-      // Update the master page ID in the info modal after the DOM is fully loaded
-      document.addEventListener('DOMContentLoaded', () => {
-        console.log(masterPageID)
-        const masterPageIDParagraph = document.getElementById("infoModal").getElementsByTagName("p")[6];
-        masterPageIDParagraph.innerHTML = `<strong>Master Page ID:</strong> ${masterPageID}`;
-      });
+      // Update the master page ID in the connection code snippet
+      console.log("Debug Connection ID: ", masterPageID)
+      const connectionCodeElement = document.getElementById('showConnectionID');
+      connectionCodeElement.innerHTML = `
+        КОД ДОСТУПУ: ${masterPageID}
+      `;
 
       function generateUniqueID() {
         return Math.random().toString(36).substring(2) + Date.now().toString(36);
@@ -444,7 +456,7 @@
               modal.style.display = "none";
           }
       });
-
+      
       //LISTENERS:
       socket.on("file uploaded", () => console.log("file uploaded"));
 

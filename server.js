@@ -227,6 +227,12 @@ io.of('/playerControls').on('connection', (socket) => {
         // **Удаление мастера из userSockets:**
         userSockets.delete(socket.id);
       }
+
+      // Check if the socket is a master
+      if (socket.handshake.query.userID) {
+         // Remove the master socket from userSockets
+         userSockets.delete(socket.handshake.query.userID);
+      }
     
       // **Удаление марионетки из списка мастера:**
       if (socket.connectionSocketID) {

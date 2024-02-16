@@ -73,12 +73,12 @@
 
       userIDButton.addEventListener('click', () => {
         // Display a prompt to enter the master ID
-        const userID = prompt("Please enter the master ID");
+        const userID = prompt("Вставте чи введіть код доступу до сторінки-контролера");
 
         if (userID) {
           socket.emit('connectToMaster', userID);
         } else {
-          alert("Please enter a userID");
+          alert("Введіть код доступу зі сторінки контролера!");
         }
       });
 
