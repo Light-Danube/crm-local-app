@@ -110,7 +110,7 @@ app.post('/upload', upload.single('video'), async (req, res) => {
    try {
        const masterId = req.query.userID;
        console.log("Received file:", req.file);
-       console.log("Emitted event to master:", masterId); 
+       console.log("Emitted event by connection id:", masterId); 
        if (masterId) {
            if (req.file) {
                console.log("Video uploaded successfully.");
@@ -125,7 +125,7 @@ app.post('/upload', upload.single('video'), async (req, res) => {
                }
            }
        } else {
-           res.status(404).send('Master ID not found or invalid');
+           res.status(404).send('Connection ID not found or invalid');
        }
    } catch (err) {
        console.error('Error uploading:', err);
@@ -185,7 +185,7 @@ io.of('/playerControls').on('connection', (socket) => {
    // **Crucial fix:** Store the socket's user ID (if provided)
    if (socket.handshake.query.userID) {
       userSockets.set(socket.handshake.query.userID, socket);
-      socket.masterSocketID = socket.handshake.query.userID;
+      socket.connectionSocketID = socket.handshake.query.userID;
    }
 
    socket.on('connectToMaster', (userID) => {
@@ -195,7 +195,7 @@ io.of('/playerControls').on('connection', (socket) => {
         const masterSocket = userSockets.get(userID);
         masterSocket.puppets = masterSocket.puppets || new Set();
         masterSocket.puppets.add(socket.id);
-        socket.masterSocketID = userID;
+        socket.connectionSocketID = userID;
         socket.join(userID); // Join the socket to the master's room
         masterSocket.emit('puppetConnected', socket.id);
         socket.emit('masterConnected', masterSocket.id);
@@ -231,8 +231,8 @@ io.of('/playerControls').on('connection', (socket) => {
       }
     
       // **Удаление марионетки из списка мастера:**
-      if (socket.masterSocketID) {
-        const masterSocket = userSockets.get(socket.masterSocketID);
+      if (socket.connectionSocketID) {
+        const masterSocket = userSockets.get(socket.connectionSocketID);
         if (masterSocket && masterSocket.puppets) {
           masterSocket.puppets.delete(socket.id);
     
@@ -250,45 +250,45 @@ io.of('/playerControls').on('connection', (socket) => {
    socket.on("player start", () => {
       console.log("server socked player started")
       // Отправить событие "play" всем клиентам в канале playerControls
-      socket.to(socket.masterSocketID).emit('play');
+      socket.to(socket.connectionSocketID).emit('play');
    });
 
    // Обработчик события "player pause"
    socket.on("player pause", () => {
       // Отправить событие "pause" всем клиентам в канале playerControls
-      socket.to(socket.masterSocketID).emit("pause");
+      socket.to(socket.connectionSocketID).emit("pause");
    });
 
    // Обработчик события "stop"
    socket.on("stop", () => {
       // Отправить событие "stop" всем клиентам в канале playerControls
-      socket.to(socket.masterSocketID).emit("stop");
+      socket.to(socket.connectionSocketID).emit("stop");
    });
 
    socket.on("player timeupdate", (time) => {
-      socket.to(socket.masterSocketID).emit("timeupdate", time);
+      socket.to(socket.connectionSocketID).emit("timeupdate", time);
    })
 
    socket.on("player volumeupdate", (volume) => {
-      socket.to(socket.masterSocketID).emit("volumeupdate", volume);
+      socket.to(socket.connectionSocketID).emit("volumeupdate", volume);
    })
 
    // Handle receiving video URL from controller page
    socket.on("video url", (url) => {
       // Broadcast the received URL to all clients (including the puppet page)
-      socket.to(socket.masterSocketID).emit("video url", url);
+      socket.to(socket.connectionSocketID).emit("video url", url);
    });
 
    // Handle receiving uploaded video URL from master page and emit it to puppet page
    socket.on("video uploaded", (url) => {
-      socket.to(socket.masterSocketID).emit("video uploaded", url);
+      socket.to(socket.connectionSocketID).emit("video uploaded", url);
    });
 
    //VIDEO PARAMETERS:
    //Inversion:
    socket.on("toggle inversion", () => {
       isVideoInverted = !isVideoInverted;
-      socket.to(socket.masterSocketID).emit("inversion status", isVideoInverted);
+      socket.to(socket.connectionSocketID).emit("inversion status", isVideoInverted);
    });
 
    // Handle color optimization button click
