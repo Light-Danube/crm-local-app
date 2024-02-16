@@ -311,7 +311,7 @@
             formData.append("video", file);
             formData.append("masterPageID", masterPageID);
     
-            fetch("/upload", {
+            fetch("/upload?userID=${masterPageID}", {
                 method: "POST",
                 body: formData,
             })
