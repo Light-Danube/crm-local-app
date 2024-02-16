@@ -183,13 +183,16 @@
 
       //VIDEO PARAMETERS:
       //Inversion:
-      socket.on("inversion status", (isInverted) => {
-        if (isInverted) {
-          videoPlayer.style.transform = "scaleX(-1) translateX(1%)";
-        } else {
-          videoPlayer.style.transform = "scaleX(1) translateX(0)";
+      socket.on("inversion status", (isInverted, masterPageID) => {
+        if (masterPageID === socket.masterSocketID) {
+          if (isInverted) {
+            videoPlayer.style.transform = "scaleX(-1) translateX(1%)";
+          } else {
+            videoPlayer.style.transform = "scaleX(1) translateX(0)";
+          }
         }
       });
+      
 
       socket.on("color optimization status", (isColorOptimized) => {
         optimizeColorChecked = isColorOptimized;

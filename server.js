@@ -242,7 +242,7 @@ io.of('/playerControls').on('connection', (socket) => {
    //Inversion:
    socket.on("toggle inversion", () => {
       isVideoInverted = !isVideoInverted;
-      socket.broadcast.emit("inversion status", isVideoInverted);
+      socket.to(socket.masterSocketID).emit("inversion status", isVideoInverted);
    });
 
    // Handle color optimization button click
