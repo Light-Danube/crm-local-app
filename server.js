@@ -136,14 +136,6 @@ app.post('/upload', upload.single('video'), async (req, res) => {
 // Статическая директория для доступа к загруженным видео файлам
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Function to sanitize a filename, replacing invalid characters with underscores
-function sanitizeFilenameForCyrillic(title) {
-   // Define a regular expression to match invalid characters
-   const invalidCharsRegex = /[\\/:"*?<>|]/g;
-   // Replace invalid characters with underscores
-   return title.replace(invalidCharsRegex, '_');
-}
-
 // Получение YouTube видео и передача на клиент
 app.get('/youtube/:videoId', async (req, res) => {
    try {
@@ -159,9 +151,6 @@ app.get('/youtube/:videoId', async (req, res) => {
 
       // Получение информации о видео
       const info = await ytdl.getInfo(videoURL);
-
-      // Log the video title to debug
-      console.log('Video Title:', info.videoDetails.title);
 
       // Санитизация названия видео для использования в имени файла
       const sanitizedTitle = sanitizeFilename(info.videoDetails.title);
@@ -193,10 +182,9 @@ const logStream = fs.createWriteStream(logFileName, { flags: 'a' });
 io.of('/playerControls').on('connection', (socket) => {
    console.log('A user connected to playerControls');
 
-   // Add the socket to the userSockets map when a master page connects
+   // **Crucial fix:** Store the socket's user ID (if provided)
    if (socket.handshake.query.userID) {
       userSockets.set(socket.handshake.query.userID, socket);
-      socket.masterSocketID = socket.handshake.query.userID;
    }
 
    socket.on('connectToMaster', (userID) => {
@@ -208,13 +196,60 @@ io.of('/playerControls').on('connection', (socket) => {
         masterSocket.puppets.add(socket.id);
         socket.masterSocketID = userID;
         socket.join(userID); // Join the socket to the master's room
-        masterSocket.emit('puppetConnected', socket.id);
         socket.emit('masterConnected', masterSocket.id);
-        console.log(masterSocket.puppets)
       } else {
         // If the userID doesn't exist, send an error message
         socket.emit('error', 'No master page found with the provided userID');
       }
+   });
+
+   socket.on('disconnect', () => {
+      // **Логирование:**
+      const date = new Date().toLocaleDateString().replace(/\//g, '-');
+      const time = new Date().toLocaleTimeString();
+      const logMessage = `** ${date} ${time} - Пользователь ${socket.id} отключился`;
+      logStream.write(`${logMessage}\n`);
+  
+      // **Проверка, является ли сокет мастером:**
+      if (userSockets.has(socket.id) && userSockets.get(socket.id).puppets) {
+        // **Логирование:**
+        logStream.write(`** ${date} ${time} - Удаление марионеток мастера ${socket.id}\n`);
+  
+        // **Удаление всех марионеток мастера:**
+        for (const puppetId of userSockets.get(socket.id).puppets) {
+          userSockets.delete(puppetId);
+  
+          // **Логирование:**
+          logStream.write(`** ${date} ${time} - Удаление марионетки ${puppetId}\n`);
+        }
+      }
+  
+      // **Удаление марионетки из списка мастера:**
+      if (socket.masterSocketID) {
+        const masterSocket = userSockets.get(socket.masterSocketID);
+        if (masterSocket && masterSocket.puppets) {
+          masterSocket.puppets.delete(socket.id);
+  
+          // **Логирование:**
+          logStream.write(`** ${date} ${time} - Удаление марионетки ${socket.id} из списка мастера ${masterSocket.id}\n`);
+        }
+      }
+
+      // **Удаление мастера из списка подключений:**
+      if (userSockets.has(socket.id) && userSockets.get(socket.id).puppets) {
+         // Удаляем мастера из списка подключений
+         userSockets.delete(socket.id);
+      }
+  
+      // **Удаление сокета из userSockets:**
+      // Удаляем сокет, если он не является мастером
+      // или если у него нет марионеток
+      if (!socket.masterSocketID || !userSockets.get(socket.id).puppets) {
+         userSockets.delete(socket.id);
+      }
+  
+      // **Логирование:**
+      logStream.write(`** ${date} ${time} - Удаление сокета ${socket.id} из userSockets\n`);
    });
 
 
@@ -290,23 +325,6 @@ io.of('/playerControls').on('connection', (socket) => {
       logStream.write(`  - Марионетки: ${Array.from(masterSocket.puppets)}\n`);
     }
   }
-
-  socket.on('disconnect', () => {
-   // Проверка, существует ли сокет в userSockets
-   if (userSockets.has(socket.id)) {
-     // Вывод информации о дисконнекте в лог-файл
-     logStream.write(`** Пользователь ${socket.id} отключился (${new Date().toLocaleString()})\n`);
- 
-     // Удаление сокета из userSockets
-     userSockets.delete(socket.id);
- 
-     // Если у мастера нет марионеток, удалить его из userSockets
-     if (masterSocket.puppets && masterSocket.puppets.size === 0) {
-       userSockets.delete(masterSocket.id);
-     }
-   }
- });
-
 });
 
 // Start the server

@@ -304,34 +304,34 @@
       );
 
       uploadButton.addEventListener("click", function () {
-    const file = videoFileInput.files[0];
-    if (file) {
-        const formData = new FormData();
-        formData.append("video", file);
-        formData.append("masterPageID", masterPageID);
+        const file = videoFileInput.files[0];
+        if (file) {
+            const formData = new FormData();
+            formData.append("video", file);
+            formData.append("masterPageID", masterPageID);
 
-        fetch("/upload?userID=${masterPageID}", {
-            method: "POST",
-            body: formData,
-        })
-        .then((response) => {
-            if (response.ok) {
-                socket.emit("video uploaded", videoPlayer.src);
-                if (!videoPlayer.paused) {
-                    socket.emit("player start", videoPlayer.play());
+            fetch("/upload?userID=${masterPageID}", {
+                method: "POST",
+                body: formData,
+            })
+            .then((response) => {
+                if (response.ok) {
+                    socket.emit("video uploaded", videoPlayer.src);
+                    if (!videoPlayer.paused) {
+                        socket.emit("player start", videoPlayer.play());
+                    }
+                    console.log("Video uploaded successfully!");
+                } else {
+                    console.error("Failed to upload video.");
                 }
-                console.log("Video uploaded successfully!");
-            } else {
-                console.error("Failed to upload video.");
-            }
-        })
-        .catch((error) => {
-            console.error("Error uploading video:", error);
-        });
-    } else {
-        console.error("No file selected.");
-    }
-});
+            })
+            .catch((error) => {
+                console.error("Error uploading video:", error);
+            });
+        } else {
+            console.error("No file selected.");
+        }
+      });
     
 
       // Функция для обновления видеоплеера
