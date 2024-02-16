@@ -161,7 +161,7 @@
           // Восстановление времени воспроизведения после загрузки нового видео
           videoPlayer.addEventListener("loadedmetadata", () => {
             videoPlayer.currentTime = currentTime;
-            videoPlayer.play(); // Возможно, вам захочется воспроизвести видео после установки времени
+            //videoPlayer.play(); // Возможно, вам захочется воспроизвести видео после установки времени
           });
         } else {
           console.error("Invalid video URL:", url);
@@ -184,17 +184,13 @@
       //VIDEO PARAMETERS:
       //Inversion:
       socket.on("inversion status", (isInverted, masterPageID) => {
-        if (masterPageID === socket.masterSocketID) {
-          if (isInverted) {
-            videoPlayer.style.transform = "scaleX(-1) translateX(1%)";
-          } else {
-            videoPlayer.style.transform = "scaleX(1) translateX(0)";
-          }
+        if (masterPageID === socket.connectionSocketID) {
+          videoPlayer.style.transform = isInverted ? "scaleX(-1) translateX(1%)" : "scaleX(1) translateX(0)";
         }
       });
       
 
-      socket.on("color optimization status", (isColorOptimized) => {
+      socket.on("color optimization status", (isColorOptimized, masterPageID) => {
         optimizeColorChecked = isColorOptimized;
         applyFilters();
       });
@@ -227,19 +223,6 @@
           }
 
           videoPlayer.style.filter = filters || "none";
-      }
-
-      // Function to apply or remove background optimization effects
-      function applyBackgroundOptimization(isChecked) {
-        if (isChecked) {
-            // Apply background optimization effects
-            console.log("Added be effects")
-            videoPlayer.classList.add("black-transparency", "white-transparency", "non-background-white", "warm-shadow", "saturated-element", "yellow-shadow");
-        } else {
-            // Remove background optimization effects
-            console.log("Removed be effects")
-            videoPlayer.classList.remove("black-transparency", "white-transparency", "non-background-white", "warm-shadow", "saturated-element", "yellow-shadow");
-        }
       }
     </script>
   </body>

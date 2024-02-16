@@ -380,7 +380,7 @@
 
       // Event listener for the "Optimize Color" checkbox
       optimizeColorButton.addEventListener("change", () => {
-          socket.emit("optimize color");
+          socket.emit("optimize color", { masterPageID });
           // Update the state of the "Optimize Color" checkbox
           optimizeColorChecked = optimizeColorButton.checked;
           // Apply filters based on the state of both checkboxes
@@ -390,45 +390,35 @@
       // Event listener for the "Enhance Details" checkbox
       enhanceDetailsCheckbox.addEventListener("change", () => {
           // Emit the enhance details event to the server along with the checkbox state
-          socket.emit("toggle enhance details", enhanceDetailsCheckbox.checked);
-          // Update the state of the "Enhance Details" checkbox
-          enhanceDetailsChecked = enhanceDetailsCheckbox.checked;
+          socket.emit("toggle enhance details", enhanceDetailsCheckbox.checked, { masterPageID });
           // Apply filters based on the state of both checkboxes
           applyFilters();
       });
 
       optimizeBackgroundCheckbox.addEventListener("change", () => {
         // Emit the enhance details event to the server along with the checkbox state
-        socket.emit("toggle back details", optimizeBackgroundCheckbox.checked);
-        // Update the state of the "Enhance Details" checkbox
-        backgroundOptimizeChecked = optimizeBackgroundCheckbox.checked;
+        socket.emit("toggle back details", optimizeBackgroundCheckbox.checked, { masterPageID });
         // Apply filters based on the state of both checkboxes
         applyFilters();
       });
-
-      // Helper function to identify shadows (replace with your logic)
-      function isShadow(pixel) {
-        return pixel.color === "#000000" && pixel.alpha < 1;
-      }
-
 
       // Function to apply filters based on the state of filter checkboxes
       function applyFilters() {
         let filters = "";
 
-        if (optimizeColorChecked) {
+        if (optimizeColorButton.checked) {
             // Apply filters for optimizing color
             filters += " contrast(130%) saturate(130%)";
         }
 
-        if (enhanceDetailsChecked) {
+        if (enhanceDetailsCheckbox.checked) {
             // Apply filters for enhancing details
             // Adjust as needed based on your specific enhancements
             filters += " brightness(110%) blur(0.25px)";
         }
 
         // Optimize Background filters (using CSS filters):
-        if (backgroundOptimizeChecked) {
+        if (optimizeBackgroundCheckbox.checked) {
           filters += " contrast(150%) drop-shadow(0 0 5px rgba(255, 0, 0, 0.5)) hue-rotate(15deg)";
         }
 

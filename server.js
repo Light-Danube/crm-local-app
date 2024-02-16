@@ -169,8 +169,6 @@ app.get('/youtube/:videoId', async (req, res) => {
    }
 });
 
-let isVideoInverted = false;
-let isColorOptimized = false;
 
 //Added logging values:
 const date = new Date().toLocaleDateString().replace(/\//g, '-');
@@ -287,37 +285,37 @@ io.of('/playerControls').on('connection', (socket) => {
    //VIDEO PARAMETERS:
    //Inversion:
    socket.on("toggle inversion", () => {
-      isVideoInverted = !isVideoInverted;
-      socket.to(socket.connectionSocketID).emit("inversion status", isVideoInverted);
+      socket.isVideoInverted = !socket.isVideoInverted;
+      socket.to(socket.connectionSocketID).emit("inversion status", socket.isVideoInverted);
    });
 
    // Handle color optimization button click
    socket.on("optimize color", () => {
-      isColorOptimized = !isColorOptimized;
-      socket.broadcast.emit("color optimization status", isColorOptimized);
+      socket.isColorOptimized = !socket.isColorOptimized;
+      socket.to(socket.connectionSocketID).emit("color optimization status", socket.isColorOptimized);
    });
 
    //Handle video "enhancements":
    socket.on("toggle enhance details", (isChecked) => {
       // Emit the enhance details status to all clients (including puppet page)
-      socket.broadcast.emit("enhance details status", isChecked);
-  });
+      socket.to(socket.connectionSocketID).emit("enhance details status", isChecked);
+   });
+   
+     //Handle video "background":
+   socket.on("toggle back details", (isChecked) => {
+      // Emit the enhance details status to all clients (including puppet page)
+      socket.to(socket.connectionSocketID).emit("background optimization status", isChecked);
+   });
 
-  //Handle video "background":
-  socket.on("toggle back details", (isChecked) => {
-   // Emit the enhance details status to all clients (including puppet page)
-   socket.broadcast.emit("background optimization status", isChecked);
-  });
 
-
-  // Вывод списка подключений при каждом новом подключении
-  logStream.write(`** Текущие подключения (${new Date().toLocaleString()}):\n`);
-  for (const [masterId, masterSocket] of userSockets.entries()) {
-    logStream.write(`- Мастер: ${masterSocket.id}\n`);
-    if (masterSocket.puppets) {
-      logStream.write(`  - Марионетки: ${Array.from(masterSocket.puppets)}\n`);
-    }
-  }
+   // Вывод списка подключений при каждом новом подключении
+   logStream.write(`** Текущие подключения (${new Date().toLocaleString()}):\n`);
+   for (const [masterId, masterSocket] of userSockets.entries()) {
+      logStream.write(`- Мастер: ${masterSocket.id}\n`);
+      if (masterSocket.puppets) {
+         logStream.write(`  - Марионетки: ${Array.from(masterSocket.puppets)}\n`);
+      }
+   }
 });
 
 // Start the server
