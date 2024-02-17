@@ -139,12 +139,6 @@
         videoPlayer.volume = volume;
       });
 
-      // Function to extract video ID from YouTube URL
-      function extractVideoId(url) {
-        const match = url.match(/[?&]v=([^&]+)/);
-        return match && match[1];
-      }
-
       // Обновление текущего времени воспроизведения при перемотке видео
       videoPlayer.addEventListener("seeking", () => {
         currentTime = videoPlayer.currentTime;
@@ -166,6 +160,19 @@
           console.error("Invalid video URL:", url);
         }
       });
+
+      // Function to extract video ID from YouTube URL
+      function extractVideoId(url) {
+        // Check for youtu.be URLs
+        const youtuBeMatch = url.match(/^(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9-_]{11})(?:[\?&].*)?$/);
+        if (youtuBeMatch) {
+          return youtuBeMatch[1]; // Extract video ID from youtu.be match
+        }
+
+        // Handle other YouTube URL formats
+        const match = url.match(/[?&]v=([^&]+)/);
+        return match && match[1];
+      }
 
       // Event listener for receiving the "stop" command
       socket.on("stop", () => {

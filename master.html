@@ -221,9 +221,14 @@
       `;
 
       function generateUniqueID() {
-        return Math.random().toString(36).substring(2) + Date.now().toString(36);
+        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let result = '';
+        for (let i = 0; i < 6; i++) {
+          result += characters.charAt(Math.floor(Math.random() * characters.length));
+        }
+        return result;
       }
-
+      
       //MASTER FUNCTIONS:
       // Function to parse the query parameter and show/hide input elements accordingly
       function parseQueryParameter() {
@@ -293,6 +298,13 @@
 
       // Function to extract video ID from YouTube URL
       function extractVideoId(url) {
+        // Check for youtu.be URLs
+        const youtuBeMatch = url.match(/^(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9-_]{11})(?:[\?&].*)?$/);
+        if (youtuBeMatch) {
+          return youtuBeMatch[1]; // Extract video ID from youtu.be match
+        }
+
+        // Handle other YouTube URL formats
         const match = url.match(/[?&]v=([^&]+)/);
         return match && match[1];
       }

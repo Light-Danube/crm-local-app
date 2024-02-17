@@ -139,15 +139,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Получение YouTube видео и передача на клиент
 app.get('/youtube/:videoId', async (req, res) => {
    try {
-      
       // Extract video ID from different URL formats
       let videoId = req.params.videoId;
-
-      // Handle both 11-character and short video ID formats
-      const videoIdRegex = /^[a-zA-Z0-9-_]{11}$|^youtu\.be\/[a-zA-Z0-9-_]{11}$/;
-      if (!videoIdRegex.test(videoId)) {
-         throw new Error('Invalid video ID format');
-      }
 
       const videoURL = `https://www.youtube.com/watch?v=${videoId}`;
 
