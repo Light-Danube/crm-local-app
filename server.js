@@ -161,6 +161,7 @@ app.get('/youtube/:videoId', async (req, res) => {
       // Передача потока видео на клиент
       res.header('Content-Disposition', `attachment; filename="${encodedFilename}.mp4"`);
       ytdl(videoURL, {
+         filter: 'audioandvideo',
          format: 'mp4',
       }).pipe(res);
    } catch (err) {
@@ -195,7 +196,7 @@ io.of('/playerControls').on('connection', (socket) => {
         masterSocket.puppets.add(socket.id);
         socket.connectionSocketID = userID;
         socket.join(userID); // Join the socket to the master's room
-        masterSocket.emit('puppetConnected', socket.id);
+        //masterSocket.emit('puppetConnected', socket.id);
         socket.emit('masterConnected', masterSocket.id);
         console.log(masterSocket.puppets)
       } else {
