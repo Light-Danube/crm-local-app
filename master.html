@@ -278,8 +278,6 @@
           }
           // Set video source
           videoPlayer.src = URL.createObjectURL(await response.blob());
-          // Play video
-          videoPlayer.play();
 
           // Send the video URL to the puppet page
           sendVideoUrl(youtubeUrl);

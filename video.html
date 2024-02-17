@@ -161,7 +161,6 @@
           // Восстановление времени воспроизведения после загрузки нового видео
           videoPlayer.addEventListener("loadedmetadata", () => {
             videoPlayer.currentTime = currentTime;
-            //videoPlayer.play(); // Возможно, вам захочется воспроизвести видео после установки времени
           });
         } else {
           console.error("Invalid video URL:", url);
