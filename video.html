@@ -122,7 +122,8 @@
       });
 
       socket.on("disconnect", () => {
-        console.log("Disconnected from server");
+        alert("Disconnected from server.");
+        videoPlayer.src = null
       });
 
       // Update the videoPlayer's currentTime when receiving timeupdate from the server

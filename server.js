@@ -9,6 +9,8 @@ const cors = require('cors');
 const ytdl = require('ytdl-core');
 const sanitizeFilename = require('sanitize-filename');
 
+const { setTimeout } = require('timers/promises');
+
 const app = express();
 const server = createServer(app);
 const io = new Server(server);
@@ -76,36 +78,51 @@ app.get('/video', (req, res) => {
 // Serve video files dynamically based on the requested file
 app.get('/videofile/:filename', (req, res) => {
    const videoPath = path.join(__dirname, 'uploads', req.params.filename);
-   const stat = fs.statSync(videoPath);
-   const fileSize = stat.size;
-   const range = req.headers.range;
-
-   if (range) {
-      const parts = range.replace(/bytes=/, "").split("-");
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-      const chunksize = (end - start) + 1;
-      const file = fs.createReadStream(videoPath, { start, end });
-      const head = {
+ 
+   try {
+     const stat = fs.statSync(videoPath);
+     const fileSize = stat.size;
+ 
+     const range = req.headers.range;
+ 
+     if (range) {
+       const parts = range.replace(/bytes=/, "").split("-");
+       const start = parseInt(parts[0], 10);
+       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+ 
+       if (start >= fileSize || end >= fileSize || start > end) {
+         throw new Error('Invalid byte range');
+       }
+ 
+       const chunksize = (end - start) + 1;
+       const file = fs.createReadStream(videoPath, { start, end });
+ 
+       const head = {
          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
          'Accept-Ranges': 'bytes',
          'Content-Length': chunksize,
          'Content-Type': 'video/mp4',
-      };
-
-      res.writeHead(206, head);
-      file.pipe(res);
-   } else {
-      const head = {
+         'Content-Disposition': 'attachment' // Optional: Encourage download
+       };
+ 
+       res.writeHead(206, head);
+       file.pipe(res);
+     } else {
+       const head = {
          'Content-Length': fileSize,
          'Content-Type': 'video/mp4',
-      };
-
-      res.writeHead(200, head);
-      fs.createReadStream(videoPath).pipe(res);
+         'Content-Disposition': 'attachment' // Optional: Encourage download
+       };
+ 
+       res.writeHead(200, head);
+       fs.createReadStream(videoPath).pipe(res);
+     }
+   } catch (error) {
+     console.error('Error serving video file:', error);
+     res.status(400).send('Error serving video file'); // Handle errors gracefully
    }
 });
-
+ 
 app.post('/upload', upload.single('video'), async (req, res) => {
    try {
        const masterId = req.query.userID;
@@ -166,11 +183,31 @@ app.get('/youtube/:videoId', async (req, res) => {
 });
 
 
-//Added logging values:
-const date = new Date().toLocaleDateString().replace(/\//g, '-');
-const logFileName = `connections-${date}.log`;
+//LOGGING:
+// Centralized logging configuration
+const logDirectory = path.join(__dirname, 'logs'); // Create a "logs" directory if it doesn't exist
+const logFileName = `connections-${new Date().toISOString().slice(0, 10)}.log`;
+const logFilePath = path.join(logDirectory, logFileName);
 
-const logStream = fs.createWriteStream(logFileName, { flags: 'a' });
+const logStream = fs.createWriteStream(logFilePath, { flags: 'a' }); // Open log file in append mode
+
+// Function to write a log message
+async function log(message) {
+  await logStream.write(`${message}\n`);
+}
+
+// Function to log current connections
+async function logCurrentConnections() {
+  const formattedDate = new Date().toLocaleString();
+  await log(`** Current Connections (${formattedDate}):\n`);
+
+  for (const [masterId, masterSocket] of userSockets.entries()) {
+    await log(`- Master: ${masterSocket.id}\n`);
+    if (masterSocket.puppets) {
+      await log(`  - Puppet: ${Array.from(masterSocket.puppets)}\n`);
+    }
+  }
+}
 
 // Обработчик подключения к каналу playerControls
 io.of('/playerControls').on('connection', (socket) => {
@@ -182,7 +219,14 @@ io.of('/playerControls').on('connection', (socket) => {
       socket.connectionSocketID = socket.handshake.query.userID;
    }
 
-   socket.on('connectToMaster', (userID) => {
+   // **Immediate connection log using Promise:**
+   log(`** ${new Date().toLocaleString()} - User ${socket.id} connected`)
+   .catch((error) => {
+      // Handle any logging errors gracefully
+      console.error('Error logging connection:', error);
+   });
+
+   socket.on('connectToMaster', async (userID) => {
       // Check if the userID exists in the Map object
       if (userSockets.has(userID)) {
         // Connect the puppet page to the master page
@@ -191,33 +235,34 @@ io.of('/playerControls').on('connection', (socket) => {
         masterSocket.puppets.add(socket.id);
         socket.connectionSocketID = userID;
         socket.join(userID); // Join the socket to the master's room
-        //masterSocket.emit('puppetConnected', socket.id);
+
+        // **Immediate log for becoming puppet:**
+        await log(`** ${new Date().toLocaleString()} - User ${socket.id} became puppet of master ${userID}`);
+
         socket.emit('masterConnected', masterSocket.id);
-        console.log(masterSocket.puppets)
+        console.log(masterSocket.puppets);
       } else {
         // If the userID doesn't exist, send an error message
         socket.emit('error', 'No master page found with the provided userID');
       }
    });
 
-   socket.on('disconnect', () => {
+   socket.on('disconnect', async () => {
       // **Логирование:**
       const date = new Date().toLocaleDateString().replace(/\//g, '-');
       const time = new Date().toLocaleTimeString();
-      const logMessage = `** ${date} ${time} - Пользователь ${socket.id} отключился`;
-      logStream.write(`${logMessage}\n`);
     
       // **Проверка, является ли сокет мастером:**
       if (userSockets.has(socket.id) && userSockets.get(socket.id).puppets) {
         // **Логирование:**
-        logStream.write(`** ${date} ${time} - Удаление марионеток мастера ${socket.id}\n`);
+        await log(`** ${date} ${time} - Killing puppets of master ${socket.id}\n`);
     
         // **Удаление всех марионеток мастера:**
         for (const puppetId of userSockets.get(socket.id).puppets) {
           userSockets.delete(puppetId);
     
           // **Логирование:**
-          logStream.write(`** ${date} ${time} - Удаление марионетки ${puppetId}\n`);
+          await log(`** ${date} ${time} - Killing puppet ${puppetId}\n`);
         }
     
         // **Удаление мастера из userSockets:**
@@ -237,12 +282,12 @@ io.of('/playerControls').on('connection', (socket) => {
           masterSocket.puppets.delete(socket.id);
     
           // **Логирование:**
-          logStream.write(`** ${date} ${time} - Удаление марионетки ${socket.id} из списка мастера ${masterSocket.id}\n`);
+          await log(`** ${date} ${time} - Killing puppet ${socket.id} from master list ${masterSocket.id}\n`);
         }
       }
     
       // **Логирование:**
-      logStream.write(`** ${date} ${time} - Удаление сокета ${socket.id} из userSockets\n`);
+      await log(`** ${date} ${time} - Killing page socket ${socket.id} from userSockets\n`);
    });    
 
 
@@ -311,17 +356,28 @@ io.of('/playerControls').on('connection', (socket) => {
 
 
    // Вывод списка подключений при каждом новом подключении
-   logStream.write(`** Текущие подключения (${new Date().toLocaleString()}):\n`);
+   /*logStream.write(`** Текущие подключения (${new Date().toLocaleString()}):\n`);
    for (const [masterId, masterSocket] of userSockets.entries()) {
       logStream.write(`- Мастер: ${masterSocket.id}\n`);
       if (masterSocket.puppets) {
          logStream.write(`  - Марионетки: ${Array.from(masterSocket.puppets)}\n`);
       }
-   }
+   }*/
 });
+
+// Initialize periodic logging
+async function startPeriodicLogging() {
+  await logCurrentConnections(); // Log connections initially
+
+  setInterval(async () => {
+    await logCurrentConnections();
+  }, 60 * 1000); // Log connections every minute
+}
 
 // Start the server
 server.listen(PORT, () => {
    console.log(`Server is running on http://localhost:${PORT}`);
    console.log(`To upload a video, visit http://localhost:${PORT}/index?type=local or http://localhost:${PORT}/index?type=url`);
 });
+
+startPeriodicLogging();

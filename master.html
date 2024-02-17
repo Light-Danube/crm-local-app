@@ -470,6 +470,11 @@
       //LISTENERS:
       socket.on("file uploaded", () => console.log("file uploaded"));
 
+      socket.on("disconnect", () => {
+        alert("Disconnected from server.");
+        videoPlayer.src = null
+      });
+
     </script>
   </body>
 </html>
