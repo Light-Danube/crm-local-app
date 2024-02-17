@@ -353,16 +353,6 @@ io.of('/playerControls').on('connection', (socket) => {
       // Emit the enhance details status to all clients (including puppet page)
       socket.to(socket.connectionSocketID).emit("background optimization status", isChecked);
    });
-
-
-   // Вывод списка подключений при каждом новом подключении
-   /*logStream.write(`** Текущие подключения (${new Date().toLocaleString()}):\n`);
-   for (const [masterId, masterSocket] of userSockets.entries()) {
-      logStream.write(`- Мастер: ${masterSocket.id}\n`);
-      if (masterSocket.puppets) {
-         logStream.write(`  - Марионетки: ${Array.from(masterSocket.puppets)}\n`);
-      }
-   }*/
 });
 
 // Initialize periodic logging
@@ -375,9 +365,32 @@ async function startPeriodicLogging() {
 }
 
 // Start the server
+// Server startup message
+log(`** ${new Date().toLocaleString()} - Server started`);
+
 server.listen(PORT, () => {
    console.log(`Server is running on http://localhost:${PORT}`);
    console.log(`To upload a video, visit http://localhost:${PORT}/index?type=local or http://localhost:${PORT}/index?type=url`);
 });
 
+// Server shutdown handler
+process.on('SIGINT', async () => {
+   console.log('Server shutting down...');
+ 
+   // Log server shutdown message
+   await log(`** ${new Date().toLocaleString()} - Server shutting down`);
+ 
+   // Disconnect all sockets
+   for (const [socketID, socket] of userSockets.entries()) {
+     io.emit("disconnect")
+   }
+ 
+   // Clear userSockets map
+   userSockets.clear();
+ 
+   // Exit the process (you may want to perform additional cleanup before exiting)
+   process.exit(0);
+});
+
+//START PERIODIC LOG:
 startPeriodicLogging();
