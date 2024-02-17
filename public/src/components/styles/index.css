@@ -186,11 +186,6 @@ body {
 .form_search {
   display: flex;
   flex-direction: column;
-  margin-top: 30px;
-
-  @media screen and (min-width: 834px) {
-    padding-top: 50px;
-  }
   @media screen and (min-width: 1024px) {
     width: 45%;
   }
@@ -248,9 +243,11 @@ body {
   margin-top: 20px;
   width: 216px;
   height: 32px;
-  padding: 0 12px 0 30px;
+  padding-left: 12px;
+  padding-right: 12px;
   outline: none;
-  border: 4px solid black;
+  border: 2px solid black;
+  border-radius: 50px;
 
   font-weight: 400;
   font-size: 12px;
@@ -267,6 +264,12 @@ body {
   @media screen and (min-width: 1024px) {
     width: 283px;
   }
+}
+.input_checkbox {
+  visibility: hidden;
+}
+.input_checkbox:checked + .switching {
+  left: 24px;
 }
 .input_search_url {
   padding-left: 12px;
@@ -297,6 +300,7 @@ body {
   box-shadow: inset 1px 1px 2px #0000001a;
   cursor: pointer;
   right: 2%;
+  transition: all 0.35s;
   @media screen and (min-width: 667px) {
     right: 5%;
   }
@@ -314,41 +318,22 @@ body {
   width: 16px;
   position: absolute;
   height: 16px;
-  transition: left 0.35s;
+  transition: all 0.35s;
   border-radius: 50%;
   background-color: #79747e;
 }
-.switching_active {
-  display: block;
-  top: 8%;
-  left: 53%;
-  width: 16px;
-  position: absolute;
-  height: 16px;
-  border-radius: 50%;
-  transition: left 0.35s;
-  background-color: #ffffff;
+.input_checkbox {
+  visibility: hidden;
 }
-.btn_check_active {
+.input_checkbox:checked + .btn_check > .switching {
+  left: 53%;
+  transition: all 0.35s;
+  background: #ffffff;
+}
+.input_checkbox:checked + .btn_check {
   border: 3px solid #6750a4;
   background: #6750a4;
-  position: absolute;
-  transition: background 0.35s;
-  width: 50px;
-  height: 25px;
-  border-radius: 20px;
-  box-shadow: inset 1px 1px 2px #0000001a;
-  cursor: pointer;
-  right: 2%;
-  @media screen and (min-width: 667px) {
-    right: 5%;
-  }
-  @media screen and (min-width: 834px) {
-    right: 0%;
-  }
-  @media screen and (min-width: 1024px) {
-    right: 10%;
-  }
+  transition: all 0.35s;
 }
 .btn_information,
 .btn_submit {
@@ -388,15 +373,36 @@ body {
   }
 }
 .btn_submit {
-  width: 84px;
+  display: block;
+  height: 40px;
+  width: 40px;
   font-weight: 300;
   font-size: 12px;
   line-height: 10px;
   cursor: pointer;
+  position: relative;
+  background: rgba(208, 188, 255, 1);
+  border: 2px solid rgba(106, 90, 205);
+  border-radius: 0.75em;
+  transition: transform 0.15s;
   @media screen and (min-width: 834px) {
-    width: 100px;
-    font-size: 16px;
-    line-height: 19.5px;
+    width: 50px;
+    height: 50px;
+  }
+}
+.btn_submit:hover {
+  background: #6750a4;
+  transform: translate(0, 0.25em);
+}
+.btn_submit:active {
+  transform: translate(0em, 0.75em);
+}
+.img__click {
+  position: relative;
+  height: 33px;
+  top: 3px;
+  @media screen and (min-width: 834px) {
+    height: 40px;
   }
 }
 
@@ -476,4 +482,63 @@ body {
 .video_box video {
   width: 100%; /* Ensure video fills its container */
   height: 100%;
+}
+
+.input__wrapper {
+  width: 100%;
+  position: relative;
+  margin: 15px 0;
+  text-align: center;
+}
+
+.input__file {
+  opacity: 0;
+  visibility: hidden;
+  position: absolute;
+}
+
+.input__file-icon-wrapper {
+  height: 60px;
+  width: 60px;
+  margin-right: 15px;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+  -ms-flex-align: center;
+  align-items: center;
+  -webkit-box-pack: center;
+  -ms-flex-pack: center;
+  justify-content: center;
+  border-right: 1px solid #fff;
+}
+
+.input__file-button-text {
+  line-height: 1;
+  margin-top: 1px;
+}
+
+.input__file-button {
+  width: 100%;
+  max-width: 290px;
+  height: 40px;
+  background: #1bbc9b;
+  color: #fff;
+  font-size: 1.125rem;
+  font-weight: 700;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+  -ms-flex-align: center;
+  align-items: center;
+  -webkit-box-pack: start;
+  -ms-flex-pack: start;
+  justify-content: flex-start;
+  border-radius: 3px;
+  cursor: pointer;
+  margin: 0 auto;
+  @media screen and (min-width: 667px) {
+    height: 60px;
+  }
 }

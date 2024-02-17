@@ -23,34 +23,29 @@
           Посилання на сайт
         </a>
       </div>
+    </header>
     <main>
       <div class="container">
         <div class="container_search">
           <div class="form_search">
             <div class="info">
-              <!-- Form to upload local videos -->
+              <!-- Instruction Set -->
               <p class="text_op" ><strong>ПРОЧИТАЙТЕ ІНСТРУКЦІЮ!!!</strong></p>
               <p class="text_op" id="showConnectionID">
                 Скопіююйте наступний код у вашу /video сторінку, щоб приєднатися до цього контролера.
                 Код: ${masterPageID}
               </p>
-              <label for="search-name" class="input_label">
+
+              <!-- Form to upload local videos -->
+              <label for="search-name" class="input_label" id="fileInputLabel">
                 <div class="container_change">
-                  <input 
-                    class="input_search"
-                    type="file" 
-                    name="video" 
-                    id="videoFile" 
-                    accept="video/*" 
-                    style="display: none;"
-                  />
-                  <svg class="input__loupe">
-                    <use
-                      href="../img/Loupe.svg#loupe"
-                      width="20"
-                      height="20"
-                    ></use>
-                  </svg>
+                  <div class="input__wrapper">
+                    <input name="file" type="file" id="videoFile" name="video" class="input input__file" multiple>
+                    <label for="videoFile" class="input__file-button">
+                       <span class="input__file-icon-wrapper"><img class="input__file-icon" src="/src/components/img/download.svg" alt="Виберіть файл" width="25"></span>
+                       <span class="input__file-button-text">Виберіть файл</span>
+                    </label>
+                 </div>
                 </div>
               </label>
 
@@ -62,8 +57,8 @@
                     type="text" 
                     id="youtubeUrlInput"
                     name="search-name"
-                    placeholder="https://"
-                    style="display: none;" />
+                    placeholder="https://"/>
+                    <!-- style="display: none;"-->  
                 </div>
               </label>
           
@@ -72,32 +67,36 @@
 
               <label class="label_form" for="optimizeButton">
                 Оптимізувати відео
-                <span class="btn_check">
+           
                     <input type="checkbox" id="optimizeButton" class="input_checkbox">
+                  <span class="btn_check">
                     <span class="switching"></span>
                 </span>
               </label>
 
               <label class="label_form" for="enhanceDetailsCheckbox">
                 Деталізувати
-                <span class="btn_check">
+               
                     <input type="checkbox" id="enhanceDetailsCheckbox" class="input_checkbox">
+                    <span class="btn_check">
                     <span class="switching"></span>
                 </span>
               </label>
 
               <label class="label_form" for="optimizeColorButton">
                 Оптимізувати колір
-                <span class="btn_check">
+               
                     <input type="checkbox" id="optimizeColorButton" class="input_checkbox">
+                    <span class="btn_check">
                     <span class="switching"></span>
                 </span>
               </label>
 
               <label class="label_form" for="optimizeBackground">
                 Оптимізувати фон
-                <span class="btn_check">
+              
                     <input type="checkbox" id="optimizeBackground" class="input_checkbox">
+                    <span class="btn_check">
                     <span class="switching"></span>
                 </span>
               </label>
@@ -107,17 +106,20 @@
               <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="1" />
 
               <!-- Endlessly Loop Video button-->
-              <label class="label_form" for="">
+              <label class="label_form" for="toggleLoopButton">
                 Зациклити відео
-                <span class="btn_check" id="toggleLoopButton">
+           
+                  <input type="checkbox" id="toggleLoopButton" class="input_checkbox">
+                  <span class="btn_check">
                   <span class="switching"></span>
                 </span>
               </label>
-
               <!-- Stop button -->
-              <label class="label_form" for="">
+              <label class="label_form" for="stopButton">
                 Зупинити відео примусово
-                <span class="btn_check" id="stopButton">
+        
+                  <input type="checkbox" id="stopButton" class="input_checkbox">
+                  <span class="btn_check">
                   <span class="switching"></span>
                 </span>
               </label>
@@ -128,12 +130,22 @@
                 <button class="btn_submit" 
                   id="uploadButton"
                   style="display: none;">
+                  <img
+                  class="img__click"
+                  src="/src/components/img/click_me.svg"
+                  alt="Click-me not found"
+                />
                 </button>
 
                 <button class="btn_submit" 
                   id="streamButton" 
                   type="submit"
                   style="display: none;">
+                  <img
+                  class="img__click"
+                  src="/src/components/img/click_me.svg"
+                  alt="Click-me not found"
+                />
                 </button>
               </label>
           
@@ -182,6 +194,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
+      const videoFileInputBox = document.getElementById("fileInputLabel");
       const videoFileInput = document.getElementById("videoFile");
       const videoPlayer = document.getElementById("videoPlayer");
       const volumeControl = document.getElementById("volumeControl");
@@ -238,14 +251,14 @@
 
           // Show/hide input elements based on the type parameter
           if (type === 'local') {
-              videoFileInput.style.display = 'block';
+              videoFileInputBox.style.display = 'block';
               youtubeUrlInput.style.display = 'none';
               //Tweak buttons
               uploadButton.style.display = 'block';
               youtubeUrlStream.style.display = 'none';
               console.log("loaded local")
           } else if (type === 'url') {
-              videoFileInput.style.display = 'none';
+              videoFileInputBox.style.display = 'none';
               youtubeUrlInput.style.display = 'block';
               //Tweak buttons
               youtubeUrlStream.style.display = 'block';
