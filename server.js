@@ -62,7 +62,7 @@ app.get('/video.html', (req, res) => {
 
 // Настройка папки для загрузки видео файлов
 const storage = multer.diskStorage({
-   destination: './uploads/',
+   destination: '/uploads/',
    filename: (req, file, cb) => {
      cb(null, Date.now() + '-' + file.originalname);
    }
