@@ -32,6 +32,7 @@
             <div class="info">
               <!-- Instruction Set -->
               <p class="text_op" ><strong>ПРОЧИТАЙТЕ ІНСТРУКЦІЮ!!!</strong></p>
+              <p class="text_op" id="connectedPuppets"></p>
               <p class="text_op" id="showConnectionID">
                 Скопіююйте наступний код у вашу /video сторінку, щоб приєднатися до цього контролера.
                 Код: ${masterPageID}
@@ -212,6 +213,9 @@
       const youtubeUrlStream = document.getElementById("streamButton");
       const stopButton = document.getElementById("stopButton");
 
+      //Puppets:
+      const puppetListElement = document.getElementById('connectedPuppets');
+
       //Video Additional Effects:
       const toggleInversionCheckbox = document.getElementById("optimizeButton");
       const enhanceDetailsCheckbox = document.getElementById("enhanceDetailsCheckbox");
@@ -242,9 +246,9 @@
       `;
 
       function generateUniqueID() {
-        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        const characters = '0123456789';
         let result = '';
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < 4; i++) {
           result += characters.charAt(Math.floor(Math.random() * characters.length));
         }
         return result;
@@ -282,13 +286,6 @@
 
       //EMITTERS:
 
-      // Function to toggle loop feature
-      toggleLoopButton.addEventListener('click', () => {
-        loopEnabled = !loopEnabled;
-        videoPlayer.loop = loopEnabled;
-      });
-
-
       // Handle YouTube video streaming form submission
       youtubeUrlStream.addEventListener("click", async (event) => {
         event.preventDefault();
@@ -308,7 +305,7 @@
           // Send the video URL to the puppet page
           sendVideoUrl(youtubeUrl);
         } catch (error) {
-          console.error("Failed to stream YouTube video:", error);
+          alert("Failed to stream YouTube video:", error);
         }
       });
 
@@ -319,15 +316,29 @@
 
       // Function to extract video ID from YouTube URL
       function extractVideoId(url) {
-        // Check for youtu.be URLs
-        const youtuBeMatch = url.match(/^(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9-_]{11})(?:[\?&].*)?$/);
-        if (youtuBeMatch) {
-          return youtuBeMatch[1]; // Extract video ID from youtu.be match
+        // Check for different YouTube URL formats using regular expressions:
+        const patterns = [
+          // Shorts:
+          /^https?:\/\/(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9-_]{11})(?:[\?&].*)?$/,
+          // Playlists:
+          /^https?:\/\/(?:www\.)?youtube\.com\/playlist\?list=([a-zA-Z0-9-_]{24})(?:[\?&].*)?$/,
+          // Mobile watch URL:
+          /^https?:\/\/m\.youtube\.com\/watch\?v=([a-zA-Z0-9-_]{11})(?:[\?&].*)?$/,
+          // Normal watch URL:
+          /^(?:https?:\/\/)?(?:www\.)?youtu(?:be\.com\/watch\?v=)?([a-zA-Z0-9-_]{11})(?:[\?&].*)?$/,
+          // "Share" button link:
+          /^(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9-_]{11})(?:[\?&].*)?$/
+        ];
+      
+        for (const pattern of patterns) {
+          const match = url.match(pattern);
+          if (match) {
+            return match[1]; // Extract video ID from the matched pattern
+          }
         }
-
-        // Handle other YouTube URL formats
-        const match = url.match(/[?&]v=([^&]+)/);
-        return match && match[1];
+      
+        // If no match found, return null
+        return null;
       }
 
       videoPlayer.addEventListener('play', () => {
@@ -350,19 +361,19 @@
         const file = videoFileInput.files[0];
         if (file) {
             const formData = new FormData();
-            formData.append("video", file);
+            // Generate a unique filename
+            const uniqueFilename = generateUniqueFilename(file.name);
+            
+            formData.append("video", file, uniqueFilename);
             formData.append("masterPageID", masterPageID);
 
-            fetch("/upload?userID=${masterPageID}", {
+            fetch(`/upload?userID=${masterPageID}`, {
                 method: "POST",
                 body: formData,
             })
             .then((response) => {
                 if (response.ok) {
-                    socket.emit("video uploaded", videoPlayer.src);
-                    if (!videoPlayer.paused) {
-                        socket.emit("player start", videoPlayer.play());
-                    }
+                    socket.emit("video uploaded", { videoId: uniqueFilename});
                     console.log("Video uploaded successfully!");
                 } else {
                     console.error("Failed to upload video.");
@@ -372,9 +383,17 @@
                 console.error("Error uploading video:", error);
             });
         } else {
-            console.error("No file selected.");
+            alert("No file selected.");
         }
-    });
+      });
+    
+      // Function to generate a unique filename
+      function generateUniqueFilename(originalFilename) {
+        const timestamp = new Date().getTime(); // Get current timestamp
+        const randomString = Math.random().toString(36).substring(2, 15); // Generate a random string
+        const fileExtension = originalFilename.split('.').pop(); // Get the file extension
+        return `${timestamp}-${randomString}.${fileExtension}`;
+      }
     
 
       // Функция для обновления видеоплеера
@@ -408,6 +427,16 @@
 
 
       //VIDEO PARAMETERS:
+      // Loop
+      toggleLoopButton.addEventListener('change', () => {
+        socket.emit("toggle loop", { masterPageID });
+        if (toggleLoopButton.checked) {
+          videoPlayer.loop = true;
+        } else {
+          videoPlayer.loop = false;
+        }
+      });
+
       //Inversion:
       //Toggle inversion checkbox event listener
       toggleInversionCheckbox.addEventListener("change", () => {
@@ -494,6 +523,15 @@
       socket.on("disconnect", () => {
         alert("Disconnected from server.");
         videoPlayer.src = null
+      });
+
+      socket.on('updatePuppets', (puppetIds) => {
+        const connectedText = puppetIds.length > 0 ? `Connected Puppets: ${puppetIds}` : 'No connected puppets';
+        puppetListElement.textContent = connectedText;
+      });
+
+      socket.on('error', (errorMessage) => {
+        alert(errorMessage); // Display error message to the user
       });
 
     </script>

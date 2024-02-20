@@ -96,20 +96,11 @@
       });
     
       socket.on('error', (errorMessage) => {
-        console.error(errorMessage);
+        alert(errorMessage);
       });
 
       //LISTENERS:
-      // Listen for the emitted video name from the master page
-      socket.on("file uploaded", (videoName) => {
-        console.log("Received uploaded video:", videoName);
-        // Load the uploaded video by its name
-        videoPlayer.src = `/uploads/${videoName}`;
-        // Reset the video to the beginning and pause it
-        videoPlayer.currentTime = 0;
-        videoPlayer.pause();
-      });
-      
+      // Listen for the emitted video name from the master page     
       socket.on("play", () => {
         //console.log("Received play command from server");
         videoPlayer.play();
@@ -144,6 +135,14 @@
         videoPlayer.volume = volume;
       });
 
+      socket.on("file uploaded", ({ videoId }) => {
+        // Load the uploaded video URL on the puppet page
+        alert("Video was loaded.", videoId)
+        videoPlayer.src = `/uploads/${videoId}`;
+        videoPlayer.currentTime = 0;
+        videoPlayer.pause();
+      });
+
       // Обновление текущего времени воспроизведения при перемотке видео
       videoPlayer.addEventListener("seeking", () => {
         currentTime = videoPlayer.currentTime;
@@ -162,21 +161,35 @@
             videoPlayer.currentTime = currentTime;
           });
         } else {
-          console.error("Invalid video URL:", url);
+          alert("Invalid video URL:", url);
         }
       });
 
       // Function to extract video ID from YouTube URL
       function extractVideoId(url) {
-        // Check for youtu.be URLs
-        const youtuBeMatch = url.match(/^(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9-_]{11})(?:[\?&].*)?$/);
-        if (youtuBeMatch) {
-          return youtuBeMatch[1]; // Extract video ID from youtu.be match
+        // Check for different YouTube URL formats using regular expressions:
+        const patterns = [
+          // Shorts:
+          /^https?:\/\/(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9-_]{11})(?:[\?&].*)?$/,
+          // Playlists:
+          /^https?:\/\/(?:www\.)?youtube\.com\/playlist\?list=([a-zA-Z0-9-_]{24})(?:[\?&].*)?$/,
+          // Mobile watch URL:
+          /^https?:\/\/m\.youtube\.com\/watch\?v=([a-zA-Z0-9-_]{11})(?:[\?&].*)?$/,
+          // Normal watch URL:
+          /^(?:https?:\/\/)?(?:www\.)?youtu(?:be\.com\/watch\?v=)?([a-zA-Z0-9-_]{11})(?:[\?&].*)?$/,
+          // "Share" button link:
+          /^https?:\/\/youtu\.be\/([a-zA-Z0-9-_]{11})\?(?:si=[a-zA-Z0-9]+)?(?:[\?&].*)?$/
+        ];
+      
+        for (const pattern of patterns) {
+          const match = url.match(pattern);
+          if (match) {
+            return match[1]; // Extract video ID from the matched pattern
+          }
         }
-
-        // Handle other YouTube URL formats
-        const match = url.match(/[?&]v=([^&]+)/);
-        return match && match[1];
+      
+        // If no match found, return null
+        return null;
       }
 
       // Event listener for receiving the "stop" command
@@ -186,13 +199,14 @@
         videoPlayer.currentTime = 0;
       });
 
-      // Listen for the uploaded video URL emitted from the master page
-      socket.on("video uploaded", (url) => {
-        // Load the uploaded video URL on the puppet page
-        videoPlayer.src = url;
+      //VIDEO PARAMETERS:
+      //Loop:
+      socket.on("loop status", (isVideoLoop, masterPageID) => {
+        if (masterPageID === socket.connectionSocketID) {
+          videoPlayer.loop = isVideoLoop ? true : false;
+        }
       });
 
-      //VIDEO PARAMETERS:
       //Inversion:
       socket.on("inversion status", (isInverted, masterPageID) => {
         if (masterPageID === socket.connectionSocketID) {

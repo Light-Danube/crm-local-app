@@ -64,7 +64,7 @@ app.get('/video.html', (req, res) => {
 const storage = multer.diskStorage({
    destination: '/uploads/',
    filename: (req, file, cb) => {
-     cb(null, Date.now() + '-' + file.originalname);
+     cb(null, file.originalname);
    }
  });
 
@@ -123,30 +123,48 @@ app.get('/videofile/:filename', (req, res) => {
    }
 });
  
-app.post('/upload', upload.single('video'), async (req, res) => {
-   try {
-       const masterId = req.query.userID;
-       console.log("Received file:", req.file);
-       console.log("Emitted event by connection id:", masterId); 
-       if (masterId) {
-           if (req.file) {
-               console.log("Video uploaded successfully.");
-               io.to(masterId).emit("file uploaded", { url: req.file.filename });
-               res.redirect(`/video.html?video=${req.file.filename}`);
-           } else {
-               const youtubeUrl = req.body.youtubeUrl;
-               if (youtubeUrl) {
-                   res.redirect(`/video.html?video=${youtubeUrl}`);
-               } else {
-                   res.status(400).send('No file or YouTube URL provided');
-               }
-           }
-       } else {
-           res.status(404).send('Connection ID not found or invalid');
-       }
-   } catch (err) {
-       console.error('Error uploading:', err);
-       res.status(500).send('Error uploading');
+// Handle video requests from puppet page
+app.get("/video/:videoId", (req, res) => {
+   const { videoId } = req.params;
+   // Check if videoId exists and serve the corresponding video file
+   if (videoIds.hasOwnProperty(videoId)) {
+     const videoPath = `/uploads/${videoIds[videoId]}`;
+     res.sendFile(videoPath, { root: __dirname });
+   } else {
+     res.status(404).send("Video not found");
+   }
+});
+ 
+ 
+ app.post('/upload', upload.single('video'), (req, res) => {
+    try {
+        const masterId = req.query.userID;
+        console.log("Received file:", req.file);
+        console.log("Emitted event by connection id:", masterId); 
+        if (masterId) {
+            if (req.file) {
+                console.log("Video loaded successfully to server.", req.file.filename);
+                //const videoURL = 'http://crm.ucreate.org.ua/uploads${req.file.filename}';
+                
+                //io.to(masterId).emit("file uploaded", { url: req.file.filename });
+                //res.redirect(`/video.html?video=${req.file.filename}`);
+                //io.to(masterId).emit("file uploaded", { url: videoURL })
+                io.to(masterId).emit("file uploaded", { videoId: req.file.filename });
+                res.redirect(`/video.html?video=${req.file.filename}`);
+            } else {
+                const youtubeUrl = req.body.youtubeUrl;
+                if (youtubeUrl) {
+                    res.redirect(`/video.html?video=${youtubeUrl}`);
+                } else {
+                    res.status(400).send('No file or YouTube URL provided');
+                }
+            }
+        } else {
+            res.status(404).send('Connection ID not found or invalid');
+        }
+    } catch (err) {
+        console.error('Error uploading:', err);
+        res.status(500).send('Error uploading');
    }
 });
 
@@ -232,6 +250,13 @@ io.of('/playerControls').on('connection', (socket) => {
         // Connect the puppet page to the master page
         const masterSocket = userSockets.get(userID);
         masterSocket.puppets = masterSocket.puppets || new Set();
+
+        // Check if the master already has 2 puppets
+        if (masterSocket.puppets && masterSocket.puppets.size >= 2) {
+         socket.emit('error', 'Master page already has the maximum number of puppets (2)');
+         return;
+        }
+
         masterSocket.puppets.add(socket.id);
         socket.connectionSocketID = userID;
         socket.join(userID); // Join the socket to the master's room
@@ -241,6 +266,8 @@ io.of('/playerControls').on('connection', (socket) => {
 
         socket.emit('masterConnected', masterSocket.id);
         console.log(masterSocket.puppets);
+        // Emit an event to the master page with the updated puppet count
+        masterSocket.emit('updatePuppets', Array.from(masterSocket.puppets || []).join(', '));
       } else {
         // If the userID doesn't exist, send an error message
         socket.emit('error', 'No master page found with the provided userID');
@@ -325,11 +352,17 @@ io.of('/playerControls').on('connection', (socket) => {
    });
 
    // Handle receiving uploaded video URL from master page and emit it to puppet page
-   socket.on("video uploaded", (url) => {
-      socket.to(socket.connectionSocketID).emit("video uploaded", url);
-   });
+   socket.on("video uploaded", ({ videoId, masterPageID }) => {
+      // Emit event to the puppet page with the unique identifier
+      socket.to(socket.connectionSocketID).emit("file uploaded", { videoId });
+  });
 
    //VIDEO PARAMETERS:
+   //Loop:
+   socket.on("toggle loop", () => {
+      socket.isVideoLoop = !socket.isVideoLoop;
+      socket.to(socket.connectionSocketID).emit("loop status", socket.isVideoLoop);
+   });
    //Inversion:
    socket.on("toggle inversion", () => {
       socket.isVideoInverted = !socket.isVideoInverted;
