@@ -20,6 +20,16 @@ const userSockets = new Map();
 
 app.use(cors());
 
+// Настройка папки для загрузки видео файлов
+const storage = multer.diskStorage({
+   destination: './uploads/',
+   filename: (req, file, cb) => {
+     cb(null, file.originalname);
+   }
+ });
+
+const upload = multer({ storage: storage });
+
 // Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -47,6 +57,8 @@ app.get('/master.html', (req, res) => {
    res.sendFile(path.join(__dirname, 'master.html'));
 });
 
+
+
 // Serve the video.html file with query parameters
 app.get('/video.html', (req, res) => {
    // Extract the video parameter from the query string
@@ -60,19 +72,24 @@ app.get('/video.html', (req, res) => {
    }
 });
 
-// Настройка папки для загрузки видео файлов
-const storage = multer.diskStorage({
-   destination: '/uploads/',
-   filename: (req, file, cb) => {
-     cb(null, file.originalname);
-   }
- });
-
-const upload = multer({ storage: storage });
-
 // Страница для проигрывания видео
 app.get('/video', (req, res) => {
    res.sendFile(path.join(__dirname, 'video.html'));
+});
+
+// Store video IDs associated with masterPageIDs
+const videoIds = {};
+
+// Handle video requests from puppet page
+app.get("/video/:videoId", (req, res) => {
+   const { videoId } = req.params;
+   // Check if videoId exists and serve the corresponding video file
+   if (videoIds.hasOwnProperty(videoId)) {
+     const videoPath = `./uploads/${videoIds[videoId]}`;
+     res.sendFile(videoPath, { root: __dirname });
+   } else {
+     res.status(404).send("Video not found");
+   }
 });
 
 // Serve video files dynamically based on the requested file
@@ -122,50 +139,37 @@ app.get('/videofile/:filename', (req, res) => {
      res.status(400).send('Error serving video file'); // Handle errors gracefully
    }
 });
- 
-// Handle video requests from puppet page
-app.get("/video/:videoId", (req, res) => {
-   const { videoId } = req.params;
-   // Check if videoId exists and serve the corresponding video file
-   if (videoIds.hasOwnProperty(videoId)) {
-     const videoPath = `/uploads/${videoIds[videoId]}`;
-     res.sendFile(videoPath, { root: __dirname });
-   } else {
-     res.status(404).send("Video not found");
-   }
-});
- 
- 
- app.post('/upload', upload.single('video'), (req, res) => {
-    try {
-        const masterId = req.query.userID;
-        console.log("Received file:", req.file);
-        console.log("Emitted event by connection id:", masterId); 
-        if (masterId) {
-            if (req.file) {
-                console.log("Video loaded successfully to server.", req.file.filename);
-                //const videoURL = 'http://crm.ucreate.org.ua/uploads${req.file.filename}';
-                
-                //io.to(masterId).emit("file uploaded", { url: req.file.filename });
-                //res.redirect(`/video.html?video=${req.file.filename}`);
-                //io.to(masterId).emit("file uploaded", { url: videoURL })
-                io.to(masterId).emit("file uploaded", { videoId: req.file.filename });
-                res.redirect(`/video.html?video=${req.file.filename}`);
-            } else {
-                const youtubeUrl = req.body.youtubeUrl;
-                if (youtubeUrl) {
-                    res.redirect(`/video.html?video=${youtubeUrl}`);
-                } else {
-                    res.status(400).send('No file or YouTube URL provided');
-                }
-            }
-        } else {
-            res.status(404).send('Connection ID not found or invalid');
-        }
-    } catch (err) {
-        console.error('Error uploading:', err);
-        res.status(500).send('Error uploading');
-   }
+
+app.post('/upload', upload.single('video'), (req, res) => {
+   try {
+       const masterId = req.query.userID;
+       console.log("Received file:", req.file);
+       console.log("Emitted event by connection id:", masterId); 
+       if (masterId) {
+           if (req.file) {
+               console.log("Video loaded successfully to server.", req.file.filename);
+               //const videoURL = 'http://crm.ucreate.org.ua/uploads${req.file.filename}';
+               
+               //io.to(masterId).emit("file uploaded", { url: req.file.filename });
+               //res.redirect(`/video.html?video=${req.file.filename}`);
+               //io.to(masterId).emit("file uploaded", { url: videoURL })
+               io.to(masterId).emit("file uploaded", { videoId: req.file.filename });
+               res.redirect(`/video.html?video=${req.file.filename}`);
+           } else {
+               const youtubeUrl = req.body.youtubeUrl;
+               if (youtubeUrl) {
+                   res.redirect(`/video.html?video=${youtubeUrl}`);
+               } else {
+                   res.status(400).send('No file or YouTube URL provided');
+               }
+           }
+       } else {
+           res.status(404).send('Connection ID not found or invalid');
+       }
+   } catch (err) {
+       console.error('Error uploading:', err);
+       res.status(500).send('Error uploading');
+  }
 });
 
 // Статическая директория для доступа к загруженным видео файлам
