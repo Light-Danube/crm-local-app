@@ -256,8 +256,8 @@ io.of('/playerControls').on('connection', (socket) => {
         masterSocket.puppets = masterSocket.puppets || new Set();
 
         // Check if the master already has 2 puppets
-        if (masterSocket.puppets && masterSocket.puppets.size >= 2) {
-         socket.emit('error', 'Master page already has the maximum number of puppets (2)');
+        if (masterSocket.puppets && masterSocket.puppets.size >= 1) {
+         socket.emit('error', 'Master page already has the maximum number of puppets (1)');
          return;
         }
 
