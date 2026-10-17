@@ -87,8 +87,8 @@
         }
       });
 
-      socket.on('masterConnected', (masterID) => {
-        console.log('Connected to master page with ID:', masterID);
+      socket.on('masterConnected', ({ sessionId, displayToken }) => {
+        if (displayToken) sessionStorage.setItem('displaySession', JSON.stringify({ sessionId, displayToken }));
         // Disable Enterance puppet elements
         userIDButton.style.display = 'none';
 
@@ -96,6 +96,9 @@
         videoPlayer.style.display = 'block';
       });
     
+      socket.on('session error', () => { alert('Не вдалося приєднати екран. Перевірте код доступу або оновіть його на контролері.'); });
+      socket.on('connect_error', () => { alert('Не вдалося підключитися до сесії. Повторіть єднання.'); });
+
       socket.on('error', (errorMessage) => {
         alert(errorMessage);
       });

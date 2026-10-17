@@ -7,7 +7,7 @@ This is a small video controller/display application, despite the repository nam
 - `master.html`: controller, local preview, upload and playback controls.
 - `video.html`: paired display/player.
 - `index.html` and `public/`: entry page and static assets.
-- Session ownership lives in an in-memory Map; restarting the server loses pairings. There is no database or build pipeline.
+- Server-issued session identity and hashed owner/display tokens live in `lib/session-store.js`; restarting the server loses sessions. See `docs/contracts/sessions.md` for HTTP and Socket.IO authentication. There is no database or build pipeline.
 
 Keep changes focused and preserve the Ukrainian UI. Prefer small draft PRs; update both ends and tests when changing HTTP or Socket.IO contracts. Do not add a framework or distributed infrastructure without a demonstrated need. See `docs/ROADMAP.md` and `docs/security/REVIEW-2026-10-17.md` for planned work and known defects. Those documents describe the reviewed baseline, not fixes already delivered.
 
@@ -45,7 +45,7 @@ Security reproductions that can terminate a process must use a separate disposab
 
 ## Security boundaries to preserve and improve
 
-Do not treat a client-provided `userID`, room name, filename or MIME type as authorization. Session roles, identity generation, media ownership and payload validation belong on the server. The four-digit pairing code is a convenience, not sufficient authentication for an Internet-facing deployment.
+Do not treat a client-provided `userID`, room name, filename or MIME type as authorization. Session roles, identity generation, media ownership and payload validation belong on the server. The six-digit, expiring, one-use pairing code is a convenience; it does not replace owner authentication or Internet account access controls.
 
 Changes involving uploads must address authentication before writing, server-generated filenames, path containment, bounded size/concurrency, cleanup and active-content serving. Restrict downloads to authorized session media. An Express HTTP CORS policy does not secure WebSocket handshakes; validate allowed origins and authorize Socket.IO events separately. Reject malformed payloads without crashing the process.
 
