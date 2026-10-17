@@ -1,0 +1,153 @@
+{
+  "checkedAt": "2026-10-17",
+  "baseCommit": "f83e3929fd6cb5f32cf8cd02138a1172d7908709",
+  "runtime": {
+    "node": "v24.19.0",
+    "npm": "11.9.0"
+  },
+  "installed": {
+    "cors": "2.8.6",
+    "express": "4.22.3",
+    "body-parser": "1.20.8",
+    "qs": "6.16.1",
+    "proxy-addr": "2.0.8",
+    "path-to-regexp": "0.1.13",
+    "socket.io": "4.8.4",
+    "engine.io": "6.6.11",
+    "socket.io-parser": "4.2.7",
+    "socket.io-adapter": "2.5.8",
+    "ws": "8.21.3",
+    "nodemon": "3.1.14",
+    "chokidar": "3.6.0",
+    "braces": "3.0.3"
+  },
+  "before": {
+    "full": {
+      "command": "npm audit --json",
+      "exitCode": 1,
+      "counts": {
+        "info": 0,
+        "low": 4,
+        "moderate": 4,
+        "high": 10,
+        "critical": 1,
+        "total": 19
+      }
+    },
+    "prod": {
+      "command": "npm audit --omit=dev --json",
+      "exitCode": 1,
+      "counts": {
+        "info": 0,
+        "low": 4,
+        "moderate": 4,
+        "high": 7,
+        "critical": 1,
+        "total": 16
+      }
+    }
+  },
+  "after": {
+    "full": {
+      "command": "npm audit --json",
+      "exitCode": 1,
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 3,
+        "critical": 0,
+        "total": 3
+      },
+      "vulnerabilities": {
+        "braces": {
+          "name": "braces",
+          "severity": "high",
+          "isDirect": false,
+          "via": [
+            {
+              "source": 1240992,
+              "name": "braces",
+              "dependency": "braces",
+              "title": "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+              "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+              "severity": "high",
+              "cwe": [
+                "CWE-674"
+              ],
+              "cvss": {
+                "score": 7.5,
+                "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+              },
+              "range": "<=3.0.3"
+            }
+          ],
+          "effects": [
+            "chokidar"
+          ],
+          "range": "*",
+          "nodes": [
+            "node_modules/braces"
+          ],
+          "fixAvailable": {
+            "name": "nodemon",
+            "version": "1.14.10",
+            "isSemVerMajor": true
+          }
+        },
+        "chokidar": {
+          "name": "chokidar",
+          "severity": "high",
+          "isDirect": false,
+          "via": [
+            "braces"
+          ],
+          "effects": [
+            "nodemon"
+          ],
+          "range": "2.0.0 - 3.6.0",
+          "nodes": [
+            "node_modules/chokidar"
+          ],
+          "fixAvailable": {
+            "name": "nodemon",
+            "version": "1.14.10",
+            "isSemVerMajor": true
+          }
+        },
+        "nodemon": {
+          "name": "nodemon",
+          "severity": "high",
+          "isDirect": true,
+          "via": [
+            "chokidar"
+          ],
+          "effects": [],
+          "range": "0.0.0-development || >=1.14.11",
+          "nodes": [
+            "node_modules/nodemon"
+          ],
+          "fixAvailable": {
+            "name": "nodemon",
+            "version": "1.14.10",
+            "isSemVerMajor": true
+          }
+        }
+      }
+    },
+    "prod": {
+      "command": "npm audit --omit=dev --json",
+      "exitCode": 0,
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "vulnerabilities": {}
+    }
+  },
+  "note": "Registry package findings are not independent exploits. Three remaining high package findings represent one braces advisory propagated through chokidar and nodemon; no production findings in this registry response."
+}
