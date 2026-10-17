@@ -46,7 +46,7 @@
               <label for="search-name" class="input_label" id="fileInputLabel">
                 <div class="container_change">
                   <div class="input__wrapper">
-                    <input name="file" type="file" id="videoFile" name="video" class="input input__file" multiple>
+                    <input name="file" type="file" id="videoFile" name="video" class="input input__file" accept="video/mp4,video/webm,.mp4,.webm">
                     <label for="videoFile" class="input__file-button">
                        <span class="input__file-icon-wrapper"><img class="input__file-icon" src="/src/components/img/download.svg" alt="Виберіть файл" width="25"></span>
                        <span class="input__file-button-text">Виберіть файл</span>
@@ -55,6 +55,7 @@
                 </div>
               </label>
 
+              <p class="text_op" id="uploadGuidance">Один файл MP4 або WebM. Кодек має підтримувати ваш браузер.</p>
               <!-- Form to stream YouTube videos -->
               <label for="search-name" class="input_label">
                 <div class="container_change">
@@ -257,6 +258,7 @@
         getSessionId: () => masterPageID,
         onExpired: requireNewSession,
         onSnapshot: snapshot => {
+          if (previewUrl && videoPlayer.src !== previewUrl) releasePreviewUrl();
           volumeControl.value = snapshot.volume;
           toggleLoopButton.checked = snapshot.effects.loop;
           toggleInversionCheckbox.checked = snapshot.effects.inversion;
@@ -327,6 +329,15 @@
       }
       initializeController().catch(error => { connectionCodeElement.textContent = error.message; });
       
+      fetch('/api/media/config').then(async response => {
+        if (!response.ok) return;
+        const config = await response.json();
+        if (Number.isSafeInteger(config.maxFileBytes) && config.maxFileBytes > 0) {
+          document.getElementById('uploadGuidance').textContent =
+            `Один файл MP4 або WebM, до ${new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 2 }).format(config.maxFileBytes / 1048576)} МіБ (${config.maxFileBytes} байт). Кодек має підтримувати ваш браузер.`;
+        }
+      }).catch(() => {});
+
       //MASTER FUNCTIONS:
       // Function to parse the query parameter and show/hide input elements accordingly
       function parseQueryParameter() {
@@ -360,32 +371,17 @@
       //EMITTERS:
 
       // Handle YouTube video streaming form submission
-      youtubeUrlStream.addEventListener("click", async (event) => {
+      youtubeUrlStream.addEventListener("click", (event) => {
         event.preventDefault();
         const youtubeUrl = youtubeUrlInput.value;
-
-        try {
-          // Extract video ID from YouTube URL
-          const videoId = extractVideoId(youtubeUrl);
-          // Fetch YouTube video from server
-          const response = await fetch(`/youtube/${videoId}`);
-          if (!response.ok) {
-            throw new Error("Failed to fetch YouTube video");
-          }
-          // Set video source
-          videoPlayer.src = URL.createObjectURL(await response.blob());
-
-          // Send the video URL to the puppet page
-          sendVideoUrl(youtubeUrl);
-        } catch (error) {
-          alert("Failed to stream YouTube video:", error);
+        if (!extractVideoId(youtubeUrl)) return alert('Введіть посилання на відео YouTube.');
+        if (!playerSession.send('video url', youtubeUrl)) {
+          return alert('Зачекайте на підключення та відновлення стану.');
         }
+        releasePreviewUrl();
+        videoPlayer.src = `/youtube/${extractVideoId(youtubeUrl)}`;
+        videoPlayer.load();
       });
-
-      // Function to send video URL to puppet page
-      function sendVideoUrl(url) {
-        playerSession.send("video url", url);
-      }
 
       // Function to extract video ID from YouTube URL
       function extractVideoId(url) { return videoUrls.extractYouTubeId(url); }
@@ -411,7 +407,11 @@
         if (!masterPageID || !socket.connected) return alert("Зачекайте на з’єднання із сервером.");
         if (file) {
             const formData = new FormData();
-            formData.append("video", file);
+            const inferredType = !file.type && /\.mp4$/i.test(file.name) ? 'video/mp4'
+              : !file.type && /\.webm$/i.test(file.name) ? 'video/webm' : file.type;
+            const uploadFile = inferredType && !file.type
+              ? new File([file], file.name, { type: inferredType, lastModified: file.lastModified }) : file;
+            formData.append("video", uploadFile);
 
             fetch(`/upload?sessionId=${masterPageID}`, {
                 method: "POST",
@@ -422,23 +422,33 @@
                 if (response.ok) {
                     console.log("Video uploaded successfully!");
                 } else {
-                    alert("Не вдалося завантажити відео. Перевірте формат, розмір і з’єднання.");
+                    return response.json().catch(() => ({})).then(body => {
+                      const detail = body.error?.message || `HTTP ${response.status}`;
+                      alert(`Не вдалося завантажити відео: ${detail}`);
+                    });
                 }
             })
             .catch((error) => {
-                console.error("Error uploading video:", error);
+                alert(`Не вдалося завантажити відео: ${error.message}`);
             });
         } else {
-            alert("No file selected.");
+            alert("Оберіть відеофайл.");
         }
       });
     
       // Функция для обновления видеоплеера
-      function updateVideoPlayer(file) {
-        const url = URL.createObjectURL(file);
-        videoPlayer.src = url;
-        console.log(videoPlayer.src);
+      let previewUrl;
+      function releasePreviewUrl() {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        previewUrl = undefined;
       }
+      function updateVideoPlayer(file) {
+        if (!file) return;
+        releasePreviewUrl();
+        previewUrl = URL.createObjectURL(file);
+        videoPlayer.src = previewUrl;
+      }
+      window.addEventListener('pagehide', releasePreviewUrl);
 
       // Обработчик события загрузки страницы
       window.addEventListener("DOMContentLoaded", function () {

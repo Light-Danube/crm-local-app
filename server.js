@@ -182,6 +182,7 @@ const mediaService = createMediaService({
     io.of('/playerControls').to(session.id).emit('file uploaded', media);
   },
 });
+app.get('/api/media/config', (req, res) => res.json(mediaService.config));
 app.post('/upload', mediaService.upload);
 app.get('/media/:sessionId/:mediaId', mediaService.serve);
 

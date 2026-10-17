@@ -1,0 +1,194 @@
+{
+  "measuredAt": "2026-10-17T13:26:39.939Z",
+  "node": "v24.19.0",
+  "chromium": "154.0.8037.57",
+  "scope": "One local loopback process; synthetic fixture only; no LAN, YouTube or drift measurement",
+  "dependencies": {
+    "express": "4.22.1",
+    "socketIO": "4.7.4"
+  },
+  "transport": {
+    "controller": "websocket",
+    "display": "websocket"
+  },
+  "previewReplacements": {
+    "iterations": 20,
+    "samples": [
+      {
+        "activeObjectURLs": 1,
+        "created": 1,
+        "revoked": 0,
+        "usedJSHeapBytes": 3525726,
+        "totalJSHeapBytes": 4799890
+      },
+      {
+        "activeObjectURLs": 2,
+        "created": 2,
+        "revoked": 0,
+        "usedJSHeapBytes": 3204886,
+        "totalJSHeapBytes": 5533138
+      },
+      {
+        "activeObjectURLs": 3,
+        "created": 3,
+        "revoked": 0,
+        "usedJSHeapBytes": 3295630,
+        "totalJSHeapBytes": 5795346
+      },
+      {
+        "activeObjectURLs": 4,
+        "created": 4,
+        "revoked": 0,
+        "usedJSHeapBytes": 3384866,
+        "totalJSHeapBytes": 5795410
+      },
+      {
+        "activeObjectURLs": 5,
+        "created": 5,
+        "revoked": 0,
+        "usedJSHeapBytes": 3475858,
+        "totalJSHeapBytes": 5795474
+      },
+      {
+        "activeObjectURLs": 6,
+        "created": 6,
+        "revoked": 0,
+        "usedJSHeapBytes": 3550614,
+        "totalJSHeapBytes": 5795538
+      },
+      {
+        "activeObjectURLs": 7,
+        "created": 7,
+        "revoked": 0,
+        "usedJSHeapBytes": 3625626,
+        "totalJSHeapBytes": 5848850
+      },
+      {
+        "activeObjectURLs": 8,
+        "created": 8,
+        "revoked": 0,
+        "usedJSHeapBytes": 3287098,
+        "totalJSHeapBytes": 5533522
+      },
+      {
+        "activeObjectURLs": 9,
+        "created": 9,
+        "revoked": 0,
+        "usedJSHeapBytes": 3391226,
+        "totalJSHeapBytes": 5533586
+      },
+      {
+        "activeObjectURLs": 10,
+        "created": 10,
+        "revoked": 0,
+        "usedJSHeapBytes": 3481246,
+        "totalJSHeapBytes": 5533650
+      },
+      {
+        "activeObjectURLs": 11,
+        "created": 11,
+        "revoked": 0,
+        "usedJSHeapBytes": 3556594,
+        "totalJSHeapBytes": 5533714
+      },
+      {
+        "activeObjectURLs": 12,
+        "created": 12,
+        "revoked": 0,
+        "usedJSHeapBytes": 3635374,
+        "totalJSHeapBytes": 5533778
+      },
+      {
+        "activeObjectURLs": 13,
+        "created": 13,
+        "revoked": 0,
+        "usedJSHeapBytes": 3710066,
+        "totalJSHeapBytes": 5533842
+      },
+      {
+        "activeObjectURLs": 14,
+        "created": 14,
+        "revoked": 0,
+        "usedJSHeapBytes": 3784710,
+        "totalJSHeapBytes": 5533906
+      },
+      {
+        "activeObjectURLs": 15,
+        "created": 15,
+        "revoked": 0,
+        "usedJSHeapBytes": 3860038,
+        "totalJSHeapBytes": 5533970
+      },
+      {
+        "activeObjectURLs": 16,
+        "created": 16,
+        "revoked": 0,
+        "usedJSHeapBytes": 3934734,
+        "totalJSHeapBytes": 5534034
+      },
+      {
+        "activeObjectURLs": 17,
+        "created": 17,
+        "revoked": 0,
+        "usedJSHeapBytes": 4009378,
+        "totalJSHeapBytes": 5534098
+      },
+      {
+        "activeObjectURLs": 18,
+        "created": 18,
+        "revoked": 0,
+        "usedJSHeapBytes": 4084202,
+        "totalJSHeapBytes": 5534162
+      },
+      {
+        "activeObjectURLs": 19,
+        "created": 19,
+        "revoked": 0,
+        "usedJSHeapBytes": 4158894,
+        "totalJSHeapBytes": 5534226
+      },
+      {
+        "activeObjectURLs": 20,
+        "created": 20,
+        "revoked": 0,
+        "usedJSHeapBytes": 4234782,
+        "totalJSHeapBytes": 5534290
+      }
+    ],
+    "memoryLimit": "performance.memory describes JS heap, not total browser/media/GPU memory; no GC forced"
+  },
+  "httpStatic": {
+    "count": 100,
+    "p50Ms": 2.6785379999998895,
+    "p95Ms": 4.813142999999968,
+    "minMs": 1.1872869999999693,
+    "maxMs": 46.141441999999984,
+    "workload": "100 sequential CSS requests before browser launch; no media streams",
+    "processCPUus": {
+      "user": 327838,
+      "system": 48853
+    },
+    "initialRSSBytes": 134635520,
+    "finalRSSBytes": 156356608,
+    "eventLoopDelayP95Ms": 10.944511
+  },
+  "sourceCommit": "f83e392",
+  "fixture": {
+    "bytes": 41674,
+    "video": "H.264 High, 320x180, 24fps, 4 seconds",
+    "audio": "AAC, 44100Hz, mono"
+  },
+  "relay": {
+    "count": 100,
+    "p50Ms": 3.9425020000016957,
+    "p95Ms": 10.645416999999725,
+    "minMs": 1.8956569999972999,
+    "maxMs": 27.97776000000158,
+    "method": "Node performance.now before Playwright evaluate emit to Node exposed binding called on display volumeupdate reception. Includes browser automation IPC and scheduling. Not ACK or visual latency."
+  },
+  "notes": [
+    "Loop verification in this original baseline timed out on a hidden checkbox. Later browser-smoke covers the actual effect handlers.",
+    "performance.memory is JS heap only, not retained media/process/GPU memory. No forced GC.",
+    "Relay includes browser automation IPC; it is neither ACK RTT, physical display latency nor LAN synchronization."
+  ]
+}

@@ -14,6 +14,19 @@
     let connectedOnce = false;
     const setStatus = text => { if (statusElement) statusElement.textContent = text; };
     const setResume = visible => { if (resumeButton) resumeButton.hidden = !visible; };
+    let mediaFailed = false;
+    video.addEventListener('error', () => {
+      if ((!video.hasAttribute('src') && !video.currentSrc) || !video.error || video.error.code === 1) return;
+      mediaFailed = true;
+      setStatus('Не вдалося завантажити відео. Перевірте посилання, формат і з’єднання.');
+    });
+    video.addEventListener('loadedmetadata', () => {
+      if (!mediaFailed) return;
+      mediaFailed = false;
+      if (resumeButton?.hidden === false) {
+        setStatus('Натисніть «Відновити відтворення», щоб дозволити відео.');
+      } else if (socket.connected) setStatus('Підключено');
+    });
     const current = (job, epoch) => !job.signal.aborted && generation === epoch && socket.connected;
     const abortRestore = () => { generation++; restore?.abort(); restore = undefined; applying = false; };
     const authCodes = new Set(['UNAUTHORIZED', 'SESSION_EXPIRED', 'SESSION_NOT_FOUND', 'INVALID_SESSION', 'CONTROLLER_OCCUPIED', 'DISPLAY_OCCUPIED']);

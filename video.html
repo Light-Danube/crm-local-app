@@ -208,9 +208,10 @@
           // Set video source to YouTube video
           videoPlayer.src = `/youtube/${videoId}`;
           // Восстановление времени воспроизведения после загрузки нового видео
-          videoPlayer.addEventListener("loadedmetadata", () => {
+          videoPlayer.onloadedmetadata = () => {
             videoPlayer.currentTime = currentTime;
-          });
+            videoPlayer.onloadedmetadata = null;
+          };
         } else {
           alert("Invalid video URL:", url);
         }

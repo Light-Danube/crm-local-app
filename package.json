@@ -6,7 +6,7 @@
   "scripts": {
     "test": "node --test --test-timeout=15000 test/*.test.js",
     "start": "nodemon server.js -e html,js,css",
-    "test:browser": "node --test --test-timeout=120000 scripts/browser-smoke.cjs"
+    "test:browser": "node --test --test-concurrency=1 --test-timeout=120000 scripts/browser-*.cjs"
   },
   "author": "",
   "license": "ISC",
