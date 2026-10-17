@@ -23,3 +23,10 @@ Default межі: 100 MiB/file, 2 concurrent uploads, 500 MiB/session, 2 GiB tot
 `GET /media/:sessionId/:mediaId` вимагає owner або display token цієї сесії. Для native video element: `POST /api/sessions/:sessionId/media-access` із Bearer token встановлює HttpOnly/SameSite=Strict cookie, обмежений `/media/<sessionId>/`. Tokens не додаються до URL. Для локального HTTP Secure не встановлюється; HTTPS додає Secure (`secureCookies` також можна явно задати при створенні application). Media відповіді: `nosniff`, CSP sandbox, private/no-store. Legacy `/uploads`, `/videofile` та `/video/:id` більше не віддають файлів.
 
 Підтвердження upload — одна серверна подія `file uploaded({mediaId,url,mime})` у кімнату display. Клієнтський `video uploaded` вилучено: довільний ID більше не можна оголосити завантаженим. HTTP auth-помилки зберігають `{error:{code,message}}`; media limits — 413, capacity — 429, неприйнятний формат — 415.
+
+
+## Lifecycle (PR 7)
+
+Повторний `connectToMaster` з кодом останнього успішного join на тому самому socket ідемпотентний: не видає нового display token. Переключення спочатку перевіряє destination, потім звільняє стару кімнату й оновлює обидва controller counters. Невдала спроба не змінює старе з'єднання. Disconnect змінює лише запис із відповідним socket ID.
+
+Повністю від'єднані сесії зберігаються 30 хвилин від останньої активності (`sessionOptions.idleTtlMs`), потім credentials і pairing-коди видаляються. Активні controller/display не видаляються через idle TTL. Cleanup відбувається при session operations і periodic logging.

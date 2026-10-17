@@ -120,9 +120,62 @@ test('session capacity and injected limits bound allocation', () => {
   store.create();
   fails(() => store.create(), 'SESSION_LIMIT');
   assert.equal(store.sessions.size, 1);
-  for (const name of ['pairingTtlMs', 'maxSessions', 'maxPairingAttempts', 'attemptWindowMs', 'maxTrackedAttempts']) {
+  for (const name of ['pairingTtlMs', 'maxSessions', 'maxPairingAttempts', 'attemptWindowMs', 'maxTrackedAttempts', 'idleTtlMs']) {
     for (const value of [0, -1, 1.5, Infinity]) {
       assert.throws(() => createSessionStore({ [name]: value }), TypeError);
     }
+  }
+});
+
+test('idle sessions expire at the boundary, deleting owner/display credentials and pairing codes', () => {
+  const { store, advance } = clocked({ idleTtlMs: 100, pairingTtlMs: 1000 });
+  const owner = store.create();
+  const display = store.pair(owner.pairingCode, 'display');
+  const next = store.rotatePairing(owner.session);
+  advance(99);
+  assert.equal(store.cleanupIdle(), 0);
+  advance(1);
+  assert.equal(store.cleanupIdle(), 1);
+  assert.equal(store.sessions.size, 0);
+  fails(() => store.authenticateOwner(owner.sessionId, owner.ownerToken), 'UNAUTHORIZED');
+  fails(() => store.authenticateDisplay(owner.sessionId, display.displayToken), 'UNAUTHORIZED');
+  fails(() => store.pair(next.pairingCode, 'display'), 'INVALID_PAIRING_CODE');
+  assert.equal(store.remove(owner.session), false);
+  fails(() => store.touch(owner.session), 'UNAUTHORIZED');
+});
+
+test('active sockets never expire and disconnect touch starts a fresh idle interval', () => {
+  const { store, advance } = clocked({ idleTtlMs: 100 });
+  const owner = store.create();
+  owner.session.controllerSocketId = 'controller';
+  advance(1000);
+  assert.equal(store.cleanupIdle(), 0);
+  owner.session.controllerSocketId = null;
+  owner.session.displaySocketId = 'display';
+  advance(1000);
+  assert.equal(store.cleanupIdle(), 0);
+  owner.session.displaySocketId = null;
+  store.touch(owner.session);
+  advance(99);
+  assert.equal(store.cleanupIdle(), 0);
+  assert.equal(store.authenticateOwner(owner.sessionId, owner.ownerToken), owner.session);
+  advance(99);
+  assert.equal(store.cleanupIdle(), 0);
+  advance(1);
+  assert.equal(store.cleanupIdle(), 1);
+});
+
+test('create, authentication and pairing reclaim idle sessions without expiring active ones', () => {
+  for (const operation of ['create', 'authenticate', 'pair']) {
+    const { store, advance } = clocked({ idleTtlMs: 100, pairingTtlMs: 1000, maxSessions: 2 });
+    const idle = store.create();
+    const active = store.create();
+    active.session.controllerSocketId = 'controller';
+    advance(100);
+    if (operation === 'create') store.create();
+    if (operation === 'authenticate') store.authenticateOwner(active.sessionId, active.ownerToken);
+    if (operation === 'pair') store.pair(active.pairingCode, 'display');
+    assert.equal(store.sessions.has(idle.sessionId), false);
+    assert.equal(store.sessions.has(active.sessionId), true);
   }
 });
