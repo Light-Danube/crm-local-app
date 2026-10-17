@@ -10,6 +10,7 @@ const ytdl = require('ytdl-core');
 const sanitizeFilename = require('sanitize-filename');
 
 const { validateEvent, validId } = require('./lib/socket-payloads');
+const { validateMediaFilename, resolveMediaPath } = require('./lib/media-path');
 
 function createApplication(options = {}) {
 
@@ -31,6 +32,19 @@ const storage = multer.diskStorage({
  });
 
 const upload = multer({ storage: storage });
+
+// Run before public static middleware, which otherwise normalizes dot segments
+// and can redirect malformed media paths before the media routes see them.
+app.use((req, res, next) => {
+   const match = /^\/(?:videofile|uploads|video)\/(.*)$/i.exec(req.path);
+   if (!match) return next();
+   try {
+     validateMediaFilename(decodeURIComponent(match[1]));
+     next();
+   } catch (error) {
+     mediaError(res, error instanceof URIError ? { status: 400 } : error);
+   }
+});
 
 // Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -83,23 +97,35 @@ app.get('/video', (req, res) => {
 const videoIds = {};
 
 // Handle video requests from puppet page
-app.get("/video/:videoId", (req, res) => {
+app.get("/video/:videoId", async (req, res) => {
    const { videoId } = req.params;
-   // Check if videoId exists and serve the corresponding video file
-   if (videoIds.hasOwnProperty(videoId)) {
-     const videoPath = path.join(mediaRoot, videoIds[videoId]);
-     res.sendFile(videoPath, { root: __dirname });
-   } else {
-     res.status(404).send("Video not found");
+   try {
+     validateMediaFilename(videoId);
+     if (!Object.hasOwn(videoIds, videoId)) {
+       return res.status(404).send('Video not found');
+     }
+     const { mediaPath } = await resolveMediaPath(mediaRoot, videoIds[videoId]);
+     sendMediaFile(res, mediaPath);
+   } catch (error) {
+     mediaError(res, error);
    }
 });
 
+function mediaError(res, error) {
+  if (res.headersSent) return res.destroy();
+  res.status(error.status || error.statusCode || 500).send('Media unavailable');
+}
+
+function sendMediaFile(res, mediaPath) {
+  res.sendFile(mediaPath, error => {
+    if (error) mediaError(res, error);
+  });
+}
+
 // Serve video files dynamically based on the requested file
-app.get('/videofile/:filename', (req, res) => {
-   const videoPath = path.join(mediaRoot, req.params.filename);
- 
+app.get('/videofile/:filename', async (req, res) => {
    try {
-     const stat = fs.statSync(videoPath);
+     const { mediaPath: videoPath, stat } = await resolveMediaPath(mediaRoot, req.params.filename);
      const fileSize = stat.size;
  
      const range = req.headers.range;
@@ -125,7 +151,7 @@ app.get('/videofile/:filename', (req, res) => {
        };
  
        res.writeHead(206, head);
-       file.pipe(res);
+       file.on('error', error => mediaError(res, error)).pipe(res);
      } else {
        const head = {
          'Content-Length': fileSize,
@@ -134,11 +160,10 @@ app.get('/videofile/:filename', (req, res) => {
        };
  
        res.writeHead(200, head);
-       fs.createReadStream(videoPath).pipe(res);
+       fs.createReadStream(videoPath).on('error', error => mediaError(res, error)).pipe(res);
      }
    } catch (error) {
-     console.error('Error serving video file:', error);
-     res.status(400).send('Error serving video file'); // Handle errors gracefully
+     mediaError(res, { status: error.status || 400 });
    }
 });
 
@@ -175,7 +200,16 @@ app.post('/upload', upload.single('video'), (req, res) => {
 });
 
 // Статическая директория для доступа к загруженным видео файлам
-app.use('/uploads', express.static(mediaRoot));
+app.use('/uploads', async (req, res, next) => {
+   if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+   try {
+     const filename = decodeURIComponent(req.path.slice(1));
+     const { mediaPath } = await resolveMediaPath(mediaRoot, filename);
+     sendMediaFile(res, mediaPath);
+   } catch (error) {
+     mediaError(res, error instanceof URIError ? { status: 400 } : error);
+   }
+});
 
 // Получение YouTube видео и передача на клиент
 app.get('/youtube/:videoId', async (req, res) => {
