@@ -37,6 +37,7 @@
                 Скопіююйте наступний код у вашу /video сторінку, щоб приєднатися до цього контролера.
                 Код: ${masterPageID}
               </p>
+              <button type="button" id="refreshPairing">Оновити код доступу</button>
 
               <!-- Form to upload local videos -->
               <label for="search-name" class="input_label" id="fileInputLabel">
@@ -232,27 +233,53 @@
       let enhanceDetailsChecked = false;
       let backgroundOptimizeChecked = false;
 
-      //MASTER LOAD:
-      // Generate ID:
-      const masterPageID = generateUniqueID();
-      // Connect to the playerControls namespace
-      const socket = io('/playerControls', { query: { userID: masterPageID } });
-      
-      // Update the master page ID in the connection code snippet
-      console.log("Debug Connection ID: ", masterPageID)
+      // Identity and ownership are issued by the server, never by a page ID.
+      let masterPageID;
+      let ownerToken;
+      let controllerSession;
+      const socket = io('/playerControls', { autoConnect: false });
       const connectionCodeElement = document.getElementById('showConnectionID');
-      connectionCodeElement.innerHTML = `
-        КОД ДОСТУПУ: ${masterPageID}
-      `;
+      const refreshPairingButton = document.getElementById('refreshPairing');
 
-      function generateUniqueID() {
-        const characters = '0123456789';
-        let result = '';
-        for (let i = 0; i < 4; i++) {
-          result += characters.charAt(Math.floor(Math.random() * characters.length));
-        }
-        return result;
+      function showPairing(pairing) {
+        connectionCodeElement.textContent = `КОД ДОСТУПУ: ${pairing.pairingCode} (до ${new Date(pairing.expiresAt).toLocaleTimeString('uk-UA')})`;
       }
+
+      async function refreshPairing() {
+        if (!masterPageID) return;
+        const response = await fetch(`/api/sessions/${masterPageID}/pairing`, {
+          method: 'POST', headers: { Authorization: `Bearer ${ownerToken}` },
+        });
+        if (!response.ok) throw new Error('Не вдалося оновити код доступу. Оновіть сторінку.');
+        showPairing(await response.json());
+      }
+      refreshPairingButton.addEventListener('click', () => {
+        refreshPairing().catch(error => { connectionCodeElement.textContent = error.message; });
+      });
+
+      async function initializeController() {
+        let saved;
+        try { saved = JSON.parse(sessionStorage.getItem('controllerSession')); } catch {}
+        if (saved && typeof saved.sessionId === 'string' && typeof saved.ownerToken === 'string') {
+          const response = await fetch(`/api/sessions/${saved.sessionId}/pairing`, {
+            method: 'POST', headers: { Authorization: `Bearer ${saved.ownerToken}` },
+          });
+          if (response.ok) controllerSession = { ...saved, ...await response.json() };
+          else if (response.status !== 401) throw new Error('Сесію тимчасово недоступно. Спробуйте оновити сторінку.');
+        }
+        if (!controllerSession) {
+          const response = await fetch('/api/sessions', { method: 'POST' });
+          if (!response.ok) throw new Error('Не вдалося створити сесію. Спробуйте пізніше.');
+          controllerSession = await response.json();
+          sessionStorage.setItem('controllerSession', JSON.stringify(controllerSession));
+        }
+        masterPageID = controllerSession.sessionId;
+        ownerToken = controllerSession.ownerToken;
+        showPairing(controllerSession);
+        socket.auth = { role: 'controller', sessionId: masterPageID, token: ownerToken };
+        socket.connect();
+      }
+      initializeController().catch(error => { connectionCodeElement.textContent = error.message; });
       
       //MASTER FUNCTIONS:
       // Function to parse the query parameter and show/hide input elements accordingly
@@ -359,16 +386,18 @@
 
       uploadButton.addEventListener("click", function () {
         const file = videoFileInput.files[0];
+        if (!masterPageID || !socket.connected) return alert("Зачекайте на з’єднання із сервером.");
         if (file) {
             const formData = new FormData();
             // Generate a unique filename
             const uniqueFilename = generateUniqueFilename(file.name);
             
             formData.append("video", file, uniqueFilename);
-            formData.append("masterPageID", masterPageID);
+
 
             fetch(`/upload?userID=${masterPageID}`, {
                 method: "POST",
+                headers: { Authorization: `Bearer ${ownerToken}` },
                 body: formData,
             })
             .then((response) => {
@@ -529,6 +558,9 @@
         const connectedText = puppetIds.length > 0 ? `Connected Puppets: ${puppetIds}` : 'No connected puppets';
         puppetListElement.textContent = connectedText;
       });
+
+      socket.on('session error', () => { alert('Дію заборонено. Перевірте сесію та код доступу.'); });
+      socket.on('connect_error', () => { connectionCodeElement.textContent = 'Не вдалося підключитися до сесії. Оновіть сторінку.'; });
 
       socket.on('error', (errorMessage) => {
         alert(errorMessage); // Display error message to the user
