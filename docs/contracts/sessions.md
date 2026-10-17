@@ -45,3 +45,10 @@ Default `SESSION_MAX_DISPLAYS=5` (positive integer). Кожен pairing вида
 Обидва клієнти зберігають role credentials у sessionStorage, автоматично повторюють authenticated handshake й оновлюють media cookie. Видимий status показує connecting/connected/reconnecting/disconnected. Зміна з'єднання не очищає src. Команди під час offline/restore відкидаються, Socket.IO buffer очищається; старі snapshots не перекривають нову revision. Після restart credentials недійсні: controller пропонує створити нову сесію, display — повторити єднання. Autoplay-відмова показує кнопку «Відновити відтворення».
 
 `npm run test:browser` потребує Chromium (`CHROMIUM_PATH`, default `/usr/bin/chromium`) і ffmpeg. Скрипт створює власний H.264/AAC fixture й тимчасові сервери, перевіряє декодування, UI, десять reconnect циклів, offline commands, native autoplay recovery та restart. Він не завантажує реальні YouTube-відео.
+
+
+## Preview та upload UI (PR 9)
+
+`GET /api/media/config` повертає readonly `{maxFileBytes,acceptedMimeTypes}` без credentials. UI показує фактичний ліміт, приймає один MP4/WebM та відображає конкретну серверну причину upload failure. Порожній browser MIME для відомого розширення нормалізується лише в клієнті; перевірка контейнера на сервері лишається обов'язковою.
+
+Локальний object URL відкликається при заміні, переході до stream/snapshot та pagehide; cancel не змінює вже наявне preview. YouTube preview і display використовують прямий `/youtube/:id`, без `response.blob()`. Shared parser приймає watch `v` незалежно від порядку query, shorts і youtu.be, відхиляє playlist-only та чужі hosts. `npm run test:browser` послідовно запускає recovery і media регресії; fake upstream лишається відкритим, доки обидва клієнти вже декодують fixture. Реальну доступність YouTube цей тест не доводить.

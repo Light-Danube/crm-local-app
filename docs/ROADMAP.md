@@ -15,7 +15,8 @@
 - PR 7: lifecycle кімнат, ідемпотентне pairing, безпечне switching/disconnect та cleanup неактивних сесій; 54 тести, включно з 20 циклами кімнат.
 - PR 7a: кілька папетів реалізовано: default 5 незалежних display identities, reconnect/revoke кожного, автоматичний новий pairing-код, актуальні count/slots. Chromium перевірив upload, decode, play/pause на трьох display одночасно.
 - PR 8: canonical playback snapshot/revision, role-token reconnect, видимі connection states, відсутність stale offline commands, явне повторне єднання після restart та autoplay recovery. Спільний YouTube URL parser прибирає розбіжність клієнтів.
-- PR 9–12: очікують виконання.
+- PR 9: preview URL відкликається при заміні/закритті, cancel без винятку, YouTube preview — прямий stream URL. UI показує фактичні upload limits і помилки; MIME-empty MP4/WebM перевіряються сервером. Chromium: 20 фактичних замін, active URLs≤1; обидва клієнти декодують до завершення fake upstream.
+- PR 10–12: очікують виконання.
 
 ## Послідовність
 
@@ -39,7 +40,7 @@
 
 ## Що вимірювати
 
-До PR 9–11 додати малий відтворюваний benchmark і записати baseline; зараз числового baseline немає. Запропоновані нижче пороги — цілі, а не отримані результати.
+Baseline перед PR 9: [дані](benchmarks/baseline-2026-10-17.json). Активні object URLs зростали 1→20 без revoke; після PR 9 browser-media перевіряє 21 create / 20 revoke / 1 active. JS heap — лише оцінка, не retained Blob/RSS/GPU; без forced GC. Поточні відтворювані browser smoke/media scripts генерують власний fixture. Числа relay baseline включають IPC автоматизації й не є ack або видимою затримкою. Запропоновані нижче пороги — цілі, а не отримані результати.
 
 | Метрика | Відтворювана перевірка | Початкова ціль |
 | --- | --- | --- |
