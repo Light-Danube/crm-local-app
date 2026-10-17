@@ -11,7 +11,8 @@
 - PR 3: серверні identity/role tokens, TTL та одноразовий pairing, ліміти спроб, заборона duplicate takeover й сторонніх команд; обидва клієнти оновлені. Контракт: [sessions](contracts/sessions.md).
 - PR 4: owner auth до upload, серверні media ID, MP4/WebM signatures, size/concurrency/disk/session quotas, cleanup partial/rejected uploads та авторизовані media URL в обох клієнтах. Публічні legacy media routes закрито.
 - PR 5: вилучено невикористані dependencies, задекларовано прямий cors, оновлено сумісні Express/Socket.IO та lockfile. Production audit: 0; full: 3 high package findings у nodemon/chokidar/braces, з reachability та планом у [звіті](security/dependency-update-2026-10-17.md).
-- PR 6–12: очікують виконання.
+- PR 6: exact allowed origins для HTTP/Socket.IO (обидва transports), явна no-Origin policy; YouTube має bounded concurrency/rate/deadline, cancellation та stream-error handling. 48 тестів, fake upstream; реальний YouTube не перевірявся.
+- PR 7–12: очікують виконання.
 
 ## Послідовність
 
