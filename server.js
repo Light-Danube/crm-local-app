@@ -9,8 +9,9 @@ const cors = require('cors');
 const ytdl = require('ytdl-core');
 const sanitizeFilename = require('sanitize-filename');
 
-const { validateEvent, validId } = require('./lib/socket-payloads');
+const { validateEvent } = require('./lib/socket-payloads');
 const { validateMediaFilename, resolveMediaPath } = require('./lib/media-path');
+const { createSessionStore } = require('./lib/session-store');
 
 function createApplication(options = {}) {
 
@@ -19,9 +20,35 @@ const server = createServer(app);
 const io = new Server(server);
 const mediaRoot = options.mediaRoot || path.join(__dirname, 'uploads');
 
-const userSockets = new Map();
+const sessionStore = createSessionStore(options.sessionOptions);
 
 app.use(cors());
+
+function sessionHttpError(res, error) {
+  const code = ['RATE_LIMITED', 'SESSION_LIMIT'].includes(error.code) ? error.code : 'UNAUTHORIZED';
+  const status = code === 'RATE_LIMITED' ? 429 : code === 'SESSION_LIMIT' ? 503 : 401;
+  res.status(status).json({ error: { code, message: code === 'UNAUTHORIZED' ? 'Invalid session credentials' : error.message } });
+}
+
+app.post('/api/sessions', (req, res) => {
+  try {
+    const { sessionId, ownerToken, pairingCode, expiresAt } = sessionStore.create();
+    res.status(201).json({ sessionId, ownerToken, pairingCode, expiresAt });
+  } catch (error) {
+    sessionHttpError(res, error);
+  }
+});
+
+app.post('/api/sessions/:sessionId/pairing', (req, res) => {
+  try {
+    const authorization = req.get('authorization');
+    const token = typeof authorization === 'string' && /^Bearer ([^\s]+)$/.exec(authorization)?.[1];
+    const session = sessionStore.authenticateOwner(req.params.sessionId, token);
+    res.json(sessionStore.rotatePairing(session));
+  } catch (error) {
+    sessionHttpError(res, error);
+  }
+});
 
 // Настройка папки для загрузки видео файлов
 const storage = multer.diskStorage({
@@ -254,187 +281,123 @@ async function log(message) {
   await logStream.write(`${message}\n`);
 }
 
-// Function to log current connections
+// Log socket metadata only: credentials and pairing codes never enter logs.
 async function logCurrentConnections() {
-  const formattedDate = new Date().toLocaleString();
-  await log(`** Current Connections (${formattedDate}):\n`);
-
-  for (const [masterId, masterSocket] of userSockets.entries()) {
-    await log(`- Master: ${masterSocket.id}\n`);
-    if (masterSocket.puppets) {
-      await log(`  - Puppet: ${Array.from(masterSocket.puppets)}\n`);
-    }
+  await log(`** Current Connections (${new Date().toLocaleString()}):\n`);
+  for (const session of sessionStore.sessions.values()) {
+    await log(`- Controller: ${session.controllerSocketId || '-'}; Display: ${session.displaySocketId || '-'}\n`);
   }
 }
 
-// Обработчик подключения к каналу playerControls
-io.of('/playerControls').on('connection', (socket) => {
-   console.log('A user connected to playerControls');
+const controls = io.of('/playerControls');
+function sessionFailure(socket, code, message, event) {
+  socket.emit('session error', { code, message, ...(event ? { event } : {}) });
+}
+function updateDisplayCount(session) {
+  if (session.controllerSocketId) {
+    controls.to(session.controllerSocketId).emit('updatePuppets', session.displaySocketId || '');
+  }
+}
 
-   // Validate every application packet before any handler reads or forwards it.
-   socket.use(([event, ...args], next) => {
-      if (!validateEvent(event, args)) {
-         socket.emit('error', `Invalid payload for ${event}`);
-         return;
-      }
-      next();
-   });
+controls.use((socket, next) => {
+  const auth = socket.handshake.auth;
+  if (auth && typeof auth === 'object' && !Array.isArray(auth) && Object.keys(auth).length === 0) {
+    socket.data.role = 'pending';
+    return next();
+  }
+  try {
+    if (!auth || typeof auth !== 'object' || Array.isArray(auth) ||
+        !['controller', 'display'].includes(auth.role)) {
+      throw Object.assign(new Error('Invalid session credentials'), { code: 'UNAUTHORIZED' });
+    }
+    const session = auth.role === 'controller'
+      ? sessionStore.authenticateOwner(auth.sessionId, auth.token)
+      : sessionStore.authenticateDisplay(auth.sessionId, auth.token);
+    const field = auth.role === 'controller' ? 'controllerSocketId' : 'displaySocketId';
+    if (session[field]) {
+      throw Object.assign(new Error(`A ${auth.role} is already connected`), {
+        code: auth.role === 'controller' ? 'CONTROLLER_OCCUPIED' : 'DISPLAY_OCCUPIED',
+      });
+    }
+    session[field] = socket.id;
+    socket.data.role = auth.role;
+    socket.data.session = session;
+    next();
+  } catch (error) {
+    const rejected = new Error(error.message);
+    rejected.data = { code: error.code || 'UNAUTHORIZED' };
+    next(rejected);
+  }
+});
 
-   // **Crucial fix:** Store the socket's user ID (if provided)
-   if (validId(socket.handshake.query.userID)) {
-      userSockets.set(socket.handshake.query.userID, socket);
-      socket.connectionSocketID = socket.handshake.query.userID;
-   }
+controls.on('connection', socket => {
+  if (socket.data.role === 'display') {
+    socket.join(socket.data.session.id);
+    socket.emit('masterConnected', { sessionId: socket.data.session.id });
+  }
+  if (socket.data.session) updateDisplayCount(socket.data.session);
+  void log(`** ${new Date().toLocaleString()} - Socket ${socket.id} connected`);
 
-   // **Immediate connection log using Promise:**
-   log(`** ${new Date().toLocaleString()} - User ${socket.id} connected`)
-   .catch((error) => {
-      // Handle any logging errors gracefully
-      console.error('Error logging connection:', error);
-   });
-
-   socket.on('connectToMaster', async (userID) => {
-      // Check if the userID exists in the Map object
-      if (userSockets.has(userID)) {
-        // Connect the puppet page to the master page
-        const masterSocket = userSockets.get(userID);
-        masterSocket.puppets = masterSocket.puppets || new Set();
-
-        // Check if the master already has 2 puppets
-        if (masterSocket.puppets && masterSocket.puppets.size >= 1) {
-         socket.emit('error', 'Master page already has the maximum number of puppets (1)');
-         return;
-        }
-
-        masterSocket.puppets.add(socket.id);
-        socket.connectionSocketID = userID;
-        socket.join(userID); // Join the socket to the master's room
-
-        // **Immediate log for becoming puppet:**
-        await log(`** ${new Date().toLocaleString()} - User ${socket.id} became puppet of master ${userID}`);
-
-        socket.emit('masterConnected', masterSocket.id);
-        console.log(masterSocket.puppets);
-        // Emit an event to the master page with the updated puppet count
-        masterSocket.emit('updatePuppets', Array.from(masterSocket.puppets || []).join(', '));
-      } else {
-        // If the userID doesn't exist, send an error message
-        socket.emit('error', 'No master page found with the provided userID');
-      }
-   });
-
-   socket.on('disconnect', async () => {
-      // **Логирование:**
-      const date = new Date().toLocaleDateString().replace(/\//g, '-');
-      const time = new Date().toLocaleTimeString();
-    
-      // **Проверка, является ли сокет мастером:**
-      if (userSockets.has(socket.id) && userSockets.get(socket.id).puppets) {
-        // **Логирование:**
-        await log(`** ${date} ${time} - Killing puppets of master ${socket.id}\n`);
-    
-        // **Удаление всех марионеток мастера:**
-        for (const puppetId of userSockets.get(socket.id).puppets) {
-          userSockets.delete(puppetId);
-    
-          // **Логирование:**
-          await log(`** ${date} ${time} - Killing puppet ${puppetId}\n`);
-        }
-    
-        // **Удаление мастера из userSockets:**
-        userSockets.delete(socket.id);
-      }
-
-      // Check if the socket is a master
-      if (socket.handshake.query.userID) {
-         // Remove the master socket from userSockets
-         userSockets.delete(socket.handshake.query.userID);
-      }
-    
-      // **Удаление марионетки из списка мастера:**
-      if (socket.connectionSocketID) {
-        const masterSocket = userSockets.get(socket.connectionSocketID);
-        if (masterSocket && masterSocket.puppets) {
-          masterSocket.puppets.delete(socket.id);
-    
-          // **Логирование:**
-          await log(`** ${date} ${time} - Killing puppet ${socket.id} from master list ${masterSocket.id}\n`);
-        }
-      }
-    
-      // **Логирование:**
-      await log(`** ${date} ${time} - Killing page socket ${socket.id} from userSockets\n`);
-   });    
-
-
-   // Обработчик события "player start"
-   socket.on("player start", () => {
-      console.log("server socked player started")
-      // Отправить событие "play" всем клиентам в канале playerControls
-      socket.to(socket.connectionSocketID).emit('play');
-   });
-
-   // Обработчик события "player pause"
-   socket.on("player pause", () => {
-      // Отправить событие "pause" всем клиентам в канале playerControls
-      socket.to(socket.connectionSocketID).emit("pause");
-   });
-
-   // Обработчик события "stop"
-   socket.on("stop", () => {
-      // Отправить событие "stop" всем клиентам в канале playerControls
-      socket.to(socket.connectionSocketID).emit("stop");
-   });
-
-   socket.on("player timeupdate", (time) => {
-      socket.to(socket.connectionSocketID).emit("timeupdate", time);
-   })
-
-   socket.on("player volumeupdate", (volume) => {
-      socket.to(socket.connectionSocketID).emit("volumeupdate", volume);
-   })
-
-   // Handle receiving video URL from controller page
-   socket.on("video url", (url) => {
-      // Broadcast the received URL to all clients (including the puppet page)
-      socket.to(socket.connectionSocketID).emit("video url", url);
-   });
-
-   // Handle receiving uploaded video URL from master page and emit it to puppet page
-   socket.on("video uploaded", ({ videoId, masterPageID }) => {
-      // Emit event to the puppet page with the unique identifier
-      socket.to(socket.connectionSocketID).emit("file uploaded", { videoId });
+  socket.use(([event, ...args], next) => {
+    if (!validateEvent(event, args)) {
+      socket.emit('error', `Invalid payload for ${event}`);
+      return;
+    }
+    const session = socket.data.session;
+    const allowed = event === 'connectToMaster'
+      ? socket.data.role === 'pending'
+      : socket.data.role === 'controller' && session?.controllerSocketId === socket.id;
+    if (!allowed) {
+      sessionFailure(socket, 'FORBIDDEN', 'This role cannot perform this command', event);
+      return;
+    }
+    next();
   });
 
-   //VIDEO PARAMETERS:
-   //Loop:
-   socket.on("toggle loop", (enabled) => {
-      socket.isVideoLoop = enabled;
-      socket.to(socket.connectionSocketID).emit("loop status", socket.isVideoLoop);
-   });
-   //Inversion:
-   socket.on("toggle inversion", (enabled) => {
-      socket.isVideoInverted = enabled;
-      socket.to(socket.connectionSocketID).emit("inversion status", socket.isVideoInverted);
-   });
+  socket.on('connectToMaster', code => {
+    try {
+      const { session, sessionId, displayToken } = sessionStore.pair(
+        code, socket.handshake.address,
+        session => !session.displaySocketId && Boolean(session.controllerSocketId),
+      );
+      session.displaySocketId = socket.id;
+      socket.data.role = 'display';
+      socket.data.session = session;
+      socket.join(session.id);
+      socket.emit('masterConnected', { sessionId, displayToken });
+      updateDisplayCount(session);
+    } catch (error) {
+      sessionFailure(socket, error.code || 'INVALID_PAIRING_CODE', error.message, 'connectToMaster');
+    }
+  });
 
-   // Handle color optimization button click
-   socket.on("optimize color", (enabled) => {
-      socket.isColorOptimized = enabled;
-      socket.to(socket.connectionSocketID).emit("color optimization status", socket.isColorOptimized);
-   });
+  socket.on('disconnect', () => {
+    const session = socket.data.session;
+    if (session) {
+      const field = socket.data.role === 'controller' ? 'controllerSocketId' : 'displaySocketId';
+      if (session[field] === socket.id) session[field] = null;
+      updateDisplayCount(session);
+    }
+    void log(`** ${new Date().toLocaleString()} - Socket ${socket.id} disconnected`);
+  });
 
-   //Handle video "enhancements":
-   socket.on("toggle enhance details", (isChecked) => {
-      // Emit the enhance details status to all clients (including puppet page)
-      socket.to(socket.connectionSocketID).emit("enhance details status", isChecked);
-   });
-   
-     //Handle video "background":
-   socket.on("toggle back details", (isChecked) => {
-      // Emit the enhance details status to all clients (including puppet page)
-      socket.to(socket.connectionSocketID).emit("background optimization status", isChecked);
-   });
+  // Rooms are selected exclusively from the authenticated server-side session.
+  const relay = (event, value, hasValue = true) => {
+    const target = socket.to(socket.data.session.id);
+    if (hasValue) target.emit(event, value); else target.emit(event);
+  };
+  socket.on('player start', () => relay('play', undefined, false));
+  socket.on('player pause', () => relay('pause', undefined, false));
+  socket.on('stop', () => relay('stop', undefined, false));
+  socket.on('player timeupdate', time => relay('timeupdate', time));
+  socket.on('player volumeupdate', volume => relay('volumeupdate', volume));
+  socket.on('video url', url => relay('video url', url));
+  socket.on('video uploaded', ({ videoId }) => relay('file uploaded', { videoId }));
+  socket.on('toggle loop', enabled => relay('loop status', enabled));
+  socket.on('toggle inversion', enabled => relay('inversion status', enabled));
+  socket.on('optimize color', enabled => relay('color optimization status', enabled));
+  socket.on('toggle enhance details', enabled => relay('enhance details status', enabled));
+  socket.on('toggle back details', enabled => relay('background optimization status', enabled));
 });
 
 // Explicit lifecycle lets each regression test own its server and runtime files.
@@ -455,11 +418,11 @@ async function start(port = 3000, host) {
 async function stop() {
   clearInterval(periodicLogging);
   await new Promise(resolve => io.close(resolve));
-  userSockets.clear();
+  sessionStore.clear();
   await new Promise(resolve => logStream.end(resolve));
 }
 
-return { app, server, io, start, stop };
+return { app, server, io, start, stop, sessionStore };
 }
 
 module.exports = { createApplication };
