@@ -1,11 +1,11 @@
 # Сесії та ролі
 
-Контракт PR 3. Стан лише в пам'яті процесу; restart анулює credentials. Усі token передавати через TLS поза локальною розробкою. Код доступу — одноразовий дозвіл приєднати один display, не owner credential.
+Контракт PR 3. Стан лише в пам'яті процесу; restart анулює credentials. Усі token передавати через TLS поза локальною розробкою. Код доступу — одноразовий дозвіл приєднати один новий display за кожним одноразовим кодом, не owner credential.
 
 - `POST /api/sessions` → 201 `{sessionId, ownerToken, pairingCode, expiresAt}`. Identity і 256-bit owner token генерує сервер. Клієнт зберігає owner token у sessionStorage, не в URL.
 - `POST /api/sessions/:sessionId/pairing`, `Authorization: Bearer <ownerToken>` → 200 `{pairingCode, expiresAt}`. Оновлює попередній код. Код має шість цифр і діє п'ять хвилин.
 - Namespace `/playerControls`: handshake `auth: {role: 'controller', sessionId, token: ownerToken}`. Повторне одночасне controller-з'єднання відхиляється, навіть із тим самим token. Відновлення після disconnect потребує правильного token. `query.userID` не дає жодних прав.
-- Display починає без credentials і надсилає `connectToMaster(pairingCode)`. Успіх — `masterConnected({sessionId, displayToken})`; код споживається. Display token дозволяє лише відновлення display: handshake `{role:'display', sessionId, token:displayToken}`. Активний display не можна замінити; pairing потребує активного controller.
+- Display починає без credentials і надсилає `connectToMaster(pairingCode)`. Успіх — `masterConnected({sessionId, displayToken})`; код споживається. Display token дозволяє лише відновлення display: handshake `{role:'display', sessionId, token:displayToken}`. Те саме display identity не можна перехопити; pairing потребує активного controller. Default — до п’яти identities на сесію.
 - Ліміт pairing: п'ять спроб за хвилину на фактичну адресу socket, спільно для всіх кодів. `X-Forwarded-For` не вважається довіреним. Усі таблиці мають межі; default — 1000 sessions та 10000 IP-лічильників. Це захист локального застосунку, не повна Internet account authentication.
 
 Команди playback, media та effects приймаються лише від controller його власної сесії. Display і неприєднаний socket не можуть надсилати controller commands. Поля `masterPageID`, `userID`, `role` у payload не створюють дозволів і не вибирають кімнату.
@@ -30,3 +30,25 @@ Default межі: 100 MiB/file, 2 concurrent uploads, 500 MiB/session, 2 GiB tot
 Повторний `connectToMaster` з кодом останнього успішного join на тому самому socket ідемпотентний: не видає нового display token. Переключення спочатку перевіряє destination, потім звільняє стару кімнату й оновлює обидва controller counters. Невдала спроба не змінює старе з'єднання. Disconnect змінює лише запис із відповідним socket ID.
 
 Повністю від'єднані сесії зберігаються 30 хвилин від останньої активності (`sessionOptions.idleTtlMs`), потім credentials і pairing-коди видаляються. Активні controller/display не видаляються через idle TTL. Cleanup відбувається при session operations і periodic logging.
+
+
+## Кілька екранів (PR 7a)
+
+Default `SESSION_MAX_DISPLAYS=5` (positive integer). Кожен pairing видає окремі `{sessionId,displayId,displayToken}`; жоден display token не замінює інші. Після успіху код автоматично змінюється: controller отримує `pairing updated({pairingCode,expiresAt})`, тож для наступного екрана беріть актуальний код.
+
+`updatePuppets({count,maxDisplays,displays:[{displayId,connected}]})` показує активні екрани й зайняті місця. Disconnect зберігає identity та її місце для reconnect. `DELETE /api/sessions/:sessionId/displays/:displayId` з owner Bearer token видаляє конкретний display, анулює лише його token і звільняє місце; master має видиму кнопку «Видалити». Код повної сесії: `DISPLAY_LIMIT`. Повторний handshake активного identity: `DISPLAY_OCCUPIED`. Ролі та доступ до медіа залишаються ізольованими за сесією. Команда/upload notification надсилається один раз кожному активному display цієї кімнати.
+
+## Відновлення стану (PR 8)
+
+Після authenticated connect, pairing та rejoin сервер надсилає `state snapshot({sessionId,media,time,paused,volume,effects,revision})`. `media` — null або `{kind,url,mediaId?}`; `effects` — `{loop,inversion,color,details,background}`. Сервер збільшує revision при прийнятті команди/медіа; читання snapshot revision не змінює. Поки грає відео, час snapshot враховує elapsed від останньої команди; це модель playback, не доказ показу кадру на екрані.
+
+Обидва клієнти зберігають role credentials у sessionStorage, автоматично повторюють authenticated handshake й оновлюють media cookie. Видимий status показує connecting/connected/reconnecting/disconnected. Зміна з'єднання не очищає src. Команди під час offline/restore відкидаються, Socket.IO buffer очищається; старі snapshots не перекривають нову revision. Після restart credentials недійсні: controller пропонує створити нову сесію, display — повторити єднання. Autoplay-відмова показує кнопку «Відновити відтворення».
+
+`npm run test:browser` потребує Chromium (`CHROMIUM_PATH`, default `/usr/bin/chromium`) і ffmpeg. Скрипт створює власний H.264/AAC fixture й тимчасові сервери, перевіряє декодування, UI, десять reconnect циклів, offline commands, native autoplay recovery та restart. Він не завантажує реальні YouTube-відео.
+
+
+## Preview та upload UI (PR 9)
+
+`GET /api/media/config` повертає readonly `{maxFileBytes,acceptedMimeTypes}` без credentials. UI показує фактичний ліміт, приймає один MP4/WebM та відображає конкретну серверну причину upload failure. Порожній browser MIME для відомого розширення нормалізується лише в клієнті; перевірка контейнера на сервері лишається обов'язковою.
+
+Локальний object URL відкликається при заміні, переході до stream/snapshot та pagehide; cancel не змінює вже наявне preview. YouTube preview і display використовують прямий `/youtube/:id`, без `response.blob()`. Shared parser приймає watch `v` незалежно від порядку query, shorts і youtu.be, відхиляє playlist-only та чужі hosts. `npm run test:browser` послідовно запускає recovery і media регресії; fake upstream лишається відкритим, доки обидва клієнти вже декодують fixture. Реальну доступність YouTube цей тест не доводить.

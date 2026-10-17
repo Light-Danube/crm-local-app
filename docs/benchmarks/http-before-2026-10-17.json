@@ -1,0 +1,78 @@
+{
+  "generatedAt": "2026-10-17T15:41:08.646Z",
+  "node": "v24.19.0",
+  "platform": "linux/x64",
+  "transport": "HTTP/1.1 loopback; node:http keep-alive; asset maxSockets=1, media maxSockets=5",
+  "workload": {
+    "fileBytes": 2097152,
+    "fixture": "generated MP4-signature bytes; decoding not tested",
+    "assetPath": "/src/components/styles/index.css",
+    "clientPauseAfterChunkMs": 10,
+    "assetRequests": 100
+  },
+  "measurementScope": "One process contains application and client driver; CPU/RSS/event-loop include both. Responses always fetched; browser cache-hit savings are not simulated. Single short run, no production capacity claim.",
+  "scenarios": [
+    {
+      "concurrentDownloads": 1,
+      "assetRequests": 100,
+      "overlappedAssetRequests": 100,
+      "assetLatencyMs": {
+        "p50": 1.121,
+        "p95": 2.292
+      },
+      "elapsedMs": 342.516,
+      "processCpuMs": {
+        "user": 163.864,
+        "system": 28.419
+      },
+      "processRssBytes": {
+        "final": 97972224,
+        "peakSampled": 97972224
+      },
+      "eventLoopDelayMs": {
+        "p95": 10.502,
+        "max": 10.568
+      },
+      "bytes": {
+        "assets": 1011300,
+        "media": 2097152
+      },
+      "assetHeaders": {
+        "cacheControl": "public, max-age=0",
+        "etag": "W/\"2781-1a149b6c90b\"",
+        "contentType": "text/css; charset=UTF-8"
+      }
+    },
+    {
+      "concurrentDownloads": 5,
+      "assetRequests": 100,
+      "overlappedAssetRequests": 100,
+      "assetLatencyMs": {
+        "p50": 1.161,
+        "p95": 2.228
+      },
+      "elapsedMs": 334.608,
+      "processCpuMs": {
+        "user": 168.684,
+        "system": 13.679
+      },
+      "processRssBytes": {
+        "final": 112521216,
+        "peakSampled": 112521216
+      },
+      "eventLoopDelayMs": {
+        "p95": 10.83,
+        "max": 11.01
+      },
+      "bytes": {
+        "assets": 1011300,
+        "media": 10485760
+      },
+      "assetHeaders": {
+        "cacheControl": "public, max-age=0",
+        "etag": "W/\"2781-1a149b6c90b\"",
+        "contentType": "text/css; charset=UTF-8"
+      }
+    }
+  ]
+}

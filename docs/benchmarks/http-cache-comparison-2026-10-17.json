@@ -1,0 +1,429 @@
+{
+  "generatedAt": "2026-10-17T15:54:06.859Z",
+  "node": "v24.19.0",
+  "methodology": "One Node process, two isolated applications compiled from baseline HEAD and changed source, fully warmed; 3 ABBA cycles per concurrency, six samples per variant; max5 concurrent downloads globally, each2MiB signaturefixture; 100sequentialCSS requests persample; media client pauses10ms/chunk. Driver/server share CPU and event loop. No browser cache hits simulated.",
+  "sourceSha256": {
+    "before": "e4038a1d9b0190a0af949f5de11b98dd7fad9d18c6947c32cc9e85e1e6137122",
+    "after": "127781f357e9b0022b5d23a036b8b1825ae4ef3542e562ccb02846c3b5bd3e3c"
+  },
+  "comparisons": [
+    {
+      "concurrentDownloads": 1,
+      "beforeP95Ms": [
+        6.65353099999993,
+        3.5280910000001313,
+        2.0628379999998288,
+        3.8808799999997063,
+        2.541776000000027,
+        4.409739999999147
+      ],
+      "afterP95Ms": [
+        2.1972240000000056,
+        1.14942099999962,
+        2.9033840000001874,
+        3.132147999999688,
+        3.9292930000001434,
+        3.71273199999996
+      ],
+      "medianP95Ms": {
+        "before": 3.704485499999919,
+        "after": 3.0177659999999378
+      },
+      "medianP50Ms": {
+        "before": 0.6800779999998667,
+        "after": 0.6110969999999725
+      },
+      "changeMedianP95Percent": -18.537513508960856
+    },
+    {
+      "concurrentDownloads": 5,
+      "beforeP95Ms": [
+        4.409106000000065,
+        3.7243900000003123,
+        8.074435999999878,
+        1.9703850000005332,
+        14.279158000001189,
+        2.910163000000466
+      ],
+      "afterP95Ms": [
+        2.2536879999997836,
+        2.365499,
+        3.209034000000429,
+        3.4275809999999183,
+        10.041911000000255,
+        17.644554000000426
+      ],
+      "medianP95Ms": {
+        "before": 4.066748000000189,
+        "after": 3.3183075000001736
+      },
+      "medianP50Ms": {
+        "before": 0.6882809999997335,
+        "after": 0.6916254999998728
+      },
+      "changeMedianP95Percent": -18.40390651203321
+    }
+  ],
+  "samples": [
+    {
+      "cycle": 0,
+      "variant": "before",
+      "concurrentDownloads": 1,
+      "assetLatencyMs": {
+        "p50": 1.544308000000001,
+        "p95": 6.65353099999993
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 2097152
+      },
+      "cacheControl": "public, max-age=0"
+    },
+    {
+      "cycle": 0,
+      "variant": "after",
+      "concurrentDownloads": 1,
+      "assetLatencyMs": {
+        "p50": 0.7962820000002466,
+        "p95": 2.1972240000000056
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 2097152
+      },
+      "cacheControl": "public, max-age=300, must-revalidate"
+    },
+    {
+      "cycle": 0,
+      "variant": "after",
+      "concurrentDownloads": 1,
+      "assetLatencyMs": {
+        "p50": 0.4066330000000562,
+        "p95": 1.14942099999962
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 2097152
+      },
+      "cacheControl": "public, max-age=300, must-revalidate"
+    },
+    {
+      "cycle": 0,
+      "variant": "before",
+      "concurrentDownloads": 1,
+      "assetLatencyMs": {
+        "p50": 0.6422119999997449,
+        "p95": 3.5280910000001313
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 2097152
+      },
+      "cacheControl": "public, max-age=0"
+    },
+    {
+      "cycle": 0,
+      "variant": "before",
+      "concurrentDownloads": 5,
+      "assetLatencyMs": {
+        "p50": 0.5151679999999033,
+        "p95": 4.409106000000065
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 10485760
+      },
+      "cacheControl": "public, max-age=0"
+    },
+    {
+      "cycle": 0,
+      "variant": "after",
+      "concurrentDownloads": 5,
+      "assetLatencyMs": {
+        "p50": 0.6033609999999499,
+        "p95": 2.2536879999997836
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 10485760
+      },
+      "cacheControl": "public, max-age=300, must-revalidate"
+    },
+    {
+      "cycle": 0,
+      "variant": "after",
+      "concurrentDownloads": 5,
+      "assetLatencyMs": {
+        "p50": 0.5397519999996803,
+        "p95": 2.365499
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 10485760
+      },
+      "cacheControl": "public, max-age=300, must-revalidate"
+    },
+    {
+      "cycle": 0,
+      "variant": "before",
+      "concurrentDownloads": 5,
+      "assetLatencyMs": {
+        "p50": 0.7369569999991654,
+        "p95": 3.7243900000003123
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 10485760
+      },
+      "cacheControl": "public, max-age=0"
+    },
+    {
+      "cycle": 1,
+      "variant": "before",
+      "concurrentDownloads": 1,
+      "assetLatencyMs": {
+        "p50": 0.5817500000002838,
+        "p95": 2.0628379999998288
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 2097152
+      },
+      "cacheControl": "public, max-age=0"
+    },
+    {
+      "cycle": 1,
+      "variant": "after",
+      "concurrentDownloads": 1,
+      "assetLatencyMs": {
+        "p50": 0.5518849999998565,
+        "p95": 2.9033840000001874
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 2097152
+      },
+      "cacheControl": "public, max-age=300, must-revalidate"
+    },
+    {
+      "cycle": 1,
+      "variant": "after",
+      "concurrentDownloads": 1,
+      "assetLatencyMs": {
+        "p50": 0.6887530000003608,
+        "p95": 3.132147999999688
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 2097152
+      },
+      "cacheControl": "public, max-age=300, must-revalidate"
+    },
+    {
+      "cycle": 1,
+      "variant": "before",
+      "concurrentDownloads": 1,
+      "assetLatencyMs": {
+        "p50": 0.6199150000002192,
+        "p95": 3.8808799999997063
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 2097152
+      },
+      "cacheControl": "public, max-age=0"
+    },
+    {
+      "cycle": 1,
+      "variant": "before",
+      "concurrentDownloads": 5,
+      "assetLatencyMs": {
+        "p50": 0.798584999999548,
+        "p95": 8.074435999999878
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 10485760
+      },
+      "cacheControl": "public, max-age=0"
+    },
+    {
+      "cycle": 1,
+      "variant": "after",
+      "concurrentDownloads": 5,
+      "assetLatencyMs": {
+        "p50": 0.5870220000006157,
+        "p95": 3.209034000000429
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 10485760
+      },
+      "cacheControl": "public, max-age=300, must-revalidate"
+    },
+    {
+      "cycle": 1,
+      "variant": "after",
+      "concurrentDownloads": 5,
+      "assetLatencyMs": {
+        "p50": 0.7798899999997957,
+        "p95": 3.4275809999999183
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 10485760
+      },
+      "cacheControl": "public, max-age=300, must-revalidate"
+    },
+    {
+      "cycle": 1,
+      "variant": "before",
+      "concurrentDownloads": 5,
+      "assetLatencyMs": {
+        "p50": 0.6396050000003015,
+        "p95": 1.9703850000005332
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 10485760
+      },
+      "cacheControl": "public, max-age=0"
+    },
+    {
+      "cycle": 2,
+      "variant": "before",
+      "concurrentDownloads": 1,
+      "assetLatencyMs": {
+        "p50": 0.7646679999998014,
+        "p95": 2.541776000000027
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 2097152
+      },
+      "cacheControl": "public, max-age=0"
+    },
+    {
+      "cycle": 2,
+      "variant": "after",
+      "concurrentDownloads": 1,
+      "assetLatencyMs": {
+        "p50": 0.6703090000000884,
+        "p95": 3.9292930000001434
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 2097152
+      },
+      "cacheControl": "public, max-age=300, must-revalidate"
+    },
+    {
+      "cycle": 2,
+      "variant": "after",
+      "concurrentDownloads": 1,
+      "assetLatencyMs": {
+        "p50": 0.4486139999999068,
+        "p95": 3.71273199999996
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 2097152
+      },
+      "cacheControl": "public, max-age=300, must-revalidate"
+    },
+    {
+      "cycle": 2,
+      "variant": "before",
+      "concurrentDownloads": 1,
+      "assetLatencyMs": {
+        "p50": 0.7179439999999886,
+        "p95": 4.409739999999147
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 2097152
+      },
+      "cacheControl": "public, max-age=0"
+    },
+    {
+      "cycle": 2,
+      "variant": "before",
+      "concurrentDownloads": 5,
+      "assetLatencyMs": {
+        "p50": 2.1962540000004083,
+        "p95": 14.279158000001189
+      },
+      "overlappedAssetRequests": 98,
+      "bytes": {
+        "assets": 1011300,
+        "media": 10485760
+      },
+      "cacheControl": "public, max-age=0"
+    },
+    {
+      "cycle": 2,
+      "variant": "after",
+      "concurrentDownloads": 5,
+      "assetLatencyMs": {
+        "p50": 1.5790209999995568,
+        "p95": 10.041911000000255
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 10485760
+      },
+      "cacheControl": "public, max-age=300, must-revalidate"
+    },
+    {
+      "cycle": 2,
+      "variant": "after",
+      "concurrentDownloads": 5,
+      "assetLatencyMs": {
+        "p50": 1.1821450000006735,
+        "p95": 17.644554000000426
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 10485760
+      },
+      "cacheControl": "public, max-age=300, must-revalidate"
+    },
+    {
+      "cycle": 2,
+      "variant": "before",
+      "concurrentDownloads": 5,
+      "assetLatencyMs": {
+        "p50": 0.49692900000081863,
+        "p95": 2.910163000000466
+      },
+      "overlappedAssetRequests": 100,
+      "bytes": {
+        "assets": 1011300,
+        "media": 10485760
+      },
+      "cacheControl": "public, max-age=0"
+    }
+  ]
+}

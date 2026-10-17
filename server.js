@@ -13,6 +13,7 @@ const { createSessionStore } = require('./lib/session-store');
 const { createMediaService } = require('./lib/media-service');
 const { createOriginPolicy } = require('./lib/origin-policy');
 const { createYoutubeHandler } = require('./lib/youtube-route');
+const { createPlaybackState } = require('./lib/playback-state');
 
 function createApplication(options = {}) {
 
@@ -30,6 +31,13 @@ io.engine.use((req, res, next) => {
 const mediaRoot = options.mediaRoot || path.join(__dirname, 'uploads');
 
 const sessionStore = createSessionStore(options.sessionOptions);
+function playback(session) {
+  return session.playback ||= createPlaybackState({ now: options.playbackNow || Date.now });
+}
+function emitSnapshot(socket) {
+  const session = socket.data.session;
+  socket.emit('state snapshot', { sessionId: session.id, ...playback(session).snapshot() });
+}
 
 app.use(originPolicy.middleware);
 app.use(cors({ origin: originPolicy.corsOrigin, credentials: true }));
@@ -60,6 +68,17 @@ app.post('/api/sessions/:sessionId/pairing', (req, res) => {
   }
 });
 
+app.delete('/api/sessions/:sessionId/displays/:displayId', (req, res) => {
+  try {
+    const session = sessionStore.authenticateOwner(req.params.sessionId, bearer(req));
+    const display = sessionStore.revokeDisplay(session, req.params.displayId);
+    if (!display) return res.status(404).json({ error: { code: 'DISPLAY_NOT_FOUND' } });
+    if (display.socketId) controls.sockets.get(display.socketId)?.disconnect(true);
+    updateDisplayCount(session);
+    res.status(204).end();
+  } catch (error) { sessionHttpError(res, error); }
+});
+
 // Run before public static middleware, which otherwise normalizes dot segments
 // and can redirect malformed media paths before the media routes see them.
 app.use((req, res, next) => {
@@ -73,12 +92,19 @@ app.use((req, res, next) => {
    }
 });
 
-// Serve static files from the "public" directory
-app.use(express.static(path.join(__dirname, 'public')));
+// Unfingerprinted application code revalidates on every visit; visual assets
+// may be reused briefly, then must revalidate. Express retains conditional ETags.
+const shortCachedAssets = new Set(['.css', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.avif']);
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders(res, filename) {
+    res.setHeader('Cache-Control', shortCachedAssets.has(path.extname(filename).toLowerCase())
+      ? 'public, max-age=300, must-revalidate' : 'no-cache');
+  },
+}));
 
 // Redirect users to the /index route when they access the root URL
 app.get('/', (req, res) => {
-   res.sendFile(path.join(__dirname, 'index.html'));
+   res.set('Cache-Control', 'no-cache').sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Handle the selection made by the user and redirect to the appropriate page
@@ -97,7 +123,7 @@ app.get('/select', (req, res) => {
 // Serve the master.html file
 app.get('/master.html', (req, res) => {
    // Send the master.html file
-   res.sendFile(path.join(__dirname, 'master.html'));
+   res.set('Cache-Control', 'no-cache').sendFile(path.join(__dirname, 'master.html'));
 });
 
 
@@ -108,7 +134,7 @@ app.get('/video.html', (req, res) => {
    const videoParam = req.query.video;
    if (videoParam) {
        // If a video parameter is provided, render the video.html file with that parameter
-       res.sendFile(path.join(__dirname, 'video.html'));
+       res.set('Cache-Control', 'no-cache').sendFile(path.join(__dirname, 'video.html'));
    } else {
        // If no video parameter is provided, send a 400 Bad Request response
        res.status(400).send('No video parameter provided');
@@ -117,7 +143,7 @@ app.get('/video.html', (req, res) => {
 
 // Страница для проигрывания видео
 app.get('/video', (req, res) => {
-   res.sendFile(path.join(__dirname, 'video.html'));
+   res.set('Cache-Control', 'no-cache').sendFile(path.join(__dirname, 'video.html'));
 });
 
 // Legacy public media routes deliberately have no file-serving handlers.
@@ -158,8 +184,12 @@ const mediaService = createMediaService({
   mediaRoot,
   limits: options.mediaLimits,
   authenticate: req => authenticateMedia(req, req.method === 'POST'),
-  notify: (session, media) => io.of('/playerControls').to(session.id).emit('file uploaded', media),
+  notify: (session, media) => {
+    playback(session).media({ kind: 'local', url: media.url, mediaId: media.mediaId });
+    io.of('/playerControls').to(session.id).emit('file uploaded', media);
+  },
 });
+app.get('/api/media/config', (req, res) => res.json(mediaService.config));
 app.post('/upload', mediaService.upload);
 app.get('/media/:sessionId/:mediaId', mediaService.serve);
 
@@ -184,7 +214,7 @@ async function logCurrentConnections() {
   sessionStore.cleanupIdle();
   await log(`** Current Connections (${new Date().toLocaleString()}):\n`);
   for (const session of sessionStore.sessions.values()) {
-    await log(`- Controller: ${session.controllerSocketId || '-'}; Display: ${session.displaySocketId || '-'}\n`);
+    await log(`- Controller: ${session.controllerSocketId || '-'}; Display: ${[...session.displays.values()].filter(display => display.socketId).length}\n`);
   }
 }
 
@@ -194,7 +224,10 @@ function sessionFailure(socket, code, message, event) {
 }
 function updateDisplayCount(session) {
   if (session.controllerSocketId) {
-    controls.to(session.controllerSocketId).emit('updatePuppets', session.displaySocketId || '');
+    const displays = [...session.displays.values()].map(display => ({ displayId: display.id, connected: Boolean(display.socketId) }));
+    controls.to(session.controllerSocketId).emit('updatePuppets', {
+      count: displays.filter(display => display.connected).length, maxDisplays: sessionStore.maxDisplays, displays,
+    });
   }
 }
 
@@ -209,16 +242,18 @@ controls.use((socket, next) => {
         !['controller', 'display'].includes(auth.role)) {
       throw Object.assign(new Error('Invalid session credentials'), { code: 'UNAUTHORIZED' });
     }
-    const session = auth.role === 'controller'
-      ? sessionStore.authenticateOwner(auth.sessionId, auth.token)
-      : sessionStore.authenticateDisplay(auth.sessionId, auth.token);
-    const field = auth.role === 'controller' ? 'controllerSocketId' : 'displaySocketId';
-    if (session[field]) {
+    const identity = auth.role === 'display' ? sessionStore.authenticateDisplayIdentity(auth.sessionId, auth.token) : null;
+    const session = identity ? identity.session : sessionStore.authenticateOwner(auth.sessionId, auth.token);
+    const occupied = identity ? identity.display.socketId : session.controllerSocketId;
+    if (occupied) {
       throw Object.assign(new Error(`A ${auth.role} is already connected`), {
         code: auth.role === 'controller' ? 'CONTROLLER_OCCUPIED' : 'DISPLAY_OCCUPIED',
       });
     }
-    session[field] = socket.id;
+    if (identity) {
+      identity.display.socketId = socket.id;
+      socket.data.display = identity.display;
+    } else session.controllerSocketId = socket.id;
     socket.data.role = auth.role;
     socket.data.session = session;
     next();
@@ -232,9 +267,12 @@ controls.use((socket, next) => {
 controls.on('connection', socket => {
   if (socket.data.role === 'display') {
     socket.join(socket.data.session.id);
-    socket.emit('masterConnected', { sessionId: socket.data.session.id });
+    socket.emit('masterConnected', { sessionId: socket.data.session.id, displayId: socket.data.display.id });
   }
-  if (socket.data.session) updateDisplayCount(socket.data.session);
+  if (socket.data.session) {
+    updateDisplayCount(socket.data.session);
+    emitSnapshot(socket);
+  }
   void log(`** ${new Date().toLocaleString()} - Socket ${socket.id} connected`);
 
   socket.use(([event, ...args], next) => {
@@ -246,7 +284,7 @@ controls.on('connection', socket => {
     const currentSession = session && sessionStore.sessions.get(session.id) === session;
     const allowed = event === 'connectToMaster'
       ? socket.data.role === 'pending' ||
-        (socket.data.role === 'display' && currentSession && session.displaySocketId === socket.id)
+        (socket.data.role === 'display' && currentSession && session.displays.get(socket.data.display?.id) === socket.data.display && socket.data.display.socketId === socket.id)
       : socket.data.role === 'controller' && currentSession && session.controllerSocketId === socket.id;
     if (!allowed) {
       sessionFailure(socket, 'FORBIDDEN', 'This role cannot perform this command', event);
@@ -260,29 +298,33 @@ controls.on('connection', socket => {
       const previous = socket.data.session;
       if (socket.data.role === 'display' && socket.data.lastPairingCode === code) {
         sessionStore.touch(previous);
-        socket.emit('masterConnected', { sessionId: previous.id });
+        socket.emit('masterConnected', { sessionId: previous.id, displayId: socket.data.display.id });
+        emitSnapshot(socket);
         updateDisplayCount(previous);
         return;
       }
-      const { session, sessionId, displayToken } = sessionStore.pair(
+      const { session, sessionId, display, displayId, displayToken, pairing } = sessionStore.pair(
         code, socket.handshake.address,
-        session => (!session.displaySocketId || session.displaySocketId === socket.id) && Boolean(session.controllerSocketId),
+        session => Boolean(session.controllerSocketId), socket.data.display,
       );
       // Admission and credential creation succeed before changing the old room.
       if (previous && previous !== session) {
         socket.leave(previous.id);
-        if (previous.displaySocketId === socket.id) {
-          previous.displaySocketId = null;
+        if (socket.data.display?.socketId === socket.id) {
+          socket.data.display.socketId = null;
           sessionStore.touch(previous);
         }
         updateDisplayCount(previous);
       }
-      session.displaySocketId = socket.id;
+      display.socketId = socket.id;
+      socket.data.display = display;
       socket.data.role = 'display';
       socket.data.session = session;
       socket.data.lastPairingCode = code;
       socket.join(session.id);
-      socket.emit('masterConnected', { sessionId, displayToken });
+      socket.emit('masterConnected', { sessionId, displayId, displayToken });
+      emitSnapshot(socket);
+      controls.to(session.controllerSocketId).emit('pairing updated', pairing);
       updateDisplayCount(session);
     } catch (error) {
       sessionFailure(socket, error.code || 'INVALID_PAIRING_CODE', error.message, 'connectToMaster');
@@ -292,9 +334,10 @@ controls.on('connection', socket => {
   socket.on('disconnect', () => {
     const session = socket.data.session;
     if (session) {
-      const field = socket.data.role === 'controller' ? 'controllerSocketId' : 'displaySocketId';
-      if (session[field] === socket.id) {
-        session[field] = null;
+      const identity = socket.data.role === 'controller' ? session : socket.data.display;
+      const field = socket.data.role === 'controller' ? 'controllerSocketId' : 'socketId';
+      if (identity?.[field] === socket.id) {
+        identity[field] = null;
         if (sessionStore.sessions.get(session.id) === session) sessionStore.touch(session);
       }
       updateDisplayCount(session);
@@ -303,21 +346,26 @@ controls.on('connection', socket => {
   });
 
   // Rooms are selected exclusively from the authenticated server-side session.
-  const relay = (event, value, hasValue = true) => {
+  const relay = (command, event, value, hasValue = true) => {
+    try { playback(socket.data.session).command(command, value); }
+    catch (error) {
+      sessionFailure(socket, error.code || 'INVALID_PAYLOAD', error.message, command);
+      return;
+    }
     const target = socket.to(socket.data.session.id);
     if (hasValue) target.emit(event, value); else target.emit(event);
   };
-  socket.on('player start', () => relay('play', undefined, false));
-  socket.on('player pause', () => relay('pause', undefined, false));
-  socket.on('stop', () => relay('stop', undefined, false));
-  socket.on('player timeupdate', time => relay('timeupdate', time));
-  socket.on('player volumeupdate', volume => relay('volumeupdate', volume));
-  socket.on('video url', url => relay('video url', url));
-  socket.on('toggle loop', enabled => relay('loop status', enabled));
-  socket.on('toggle inversion', enabled => relay('inversion status', enabled));
-  socket.on('optimize color', enabled => relay('color optimization status', enabled));
-  socket.on('toggle enhance details', enabled => relay('enhance details status', enabled));
-  socket.on('toggle back details', enabled => relay('background optimization status', enabled));
+  socket.on('player start', () => relay('player start', 'play', undefined, false));
+  socket.on('player pause', () => relay('player pause', 'pause', undefined, false));
+  socket.on('stop', () => relay('stop', 'stop', undefined, false));
+  socket.on('player timeupdate', time => relay('player timeupdate', 'timeupdate', time));
+  socket.on('player volumeupdate', volume => relay('player volumeupdate', 'volumeupdate', volume));
+  socket.on('video url', url => relay('video url', 'video url', url));
+  socket.on('toggle loop', enabled => relay('toggle loop', 'loop status', enabled));
+  socket.on('toggle inversion', enabled => relay('toggle inversion', 'inversion status', enabled));
+  socket.on('optimize color', enabled => relay('optimize color', 'color optimization status', enabled));
+  socket.on('toggle enhance details', enabled => relay('toggle enhance details', 'enhance details status', enabled));
+  socket.on('toggle back details', enabled => relay('toggle back details', 'background optimization status', enabled));
 });
 
 // Explicit lifecycle lets each regression test own its server and runtime files.
@@ -360,6 +408,7 @@ if (require.main === module) {
     .map(([key, name]) => [key, Number(process.env[name])]));
   const application = createApplication({
     mediaLimits,
+    sessionOptions: process.env.SESSION_MAX_DISPLAYS === undefined ? {} : { maxDisplays: Number(process.env.SESSION_MAX_DISPLAYS) },
     allowedOrigins: process.env.ALLOWED_ORIGINS?.split(',').map(origin => origin.trim()),
     allowNoOrigin: process.env.ALLOW_NO_ORIGIN !== 'false',
   });
