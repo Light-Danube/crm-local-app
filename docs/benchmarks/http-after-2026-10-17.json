@@ -1,0 +1,78 @@
+{
+  "generatedAt": "2026-10-17T15:52:00.158Z",
+  "node": "v24.19.0",
+  "platform": "linux/x64",
+  "transport": "HTTP/1.1 loopback; node:http keep-alive; asset maxSockets=1, media maxSockets=5",
+  "workload": {
+    "fileBytes": 2097152,
+    "fixture": "generated MP4-signature bytes; decoding not tested",
+    "assetPath": "/src/components/styles/index.css",
+    "clientPauseAfterChunkMs": 10,
+    "assetRequests": 100
+  },
+  "measurementScope": "One process contains application and client driver; CPU/RSS/event-loop include both. Responses always fetched; browser cache-hit savings are not simulated. Single short run, no production capacity claim.",
+  "scenarios": [
+    {
+      "concurrentDownloads": 1,
+      "assetRequests": 100,
+      "overlappedAssetRequests": 82,
+      "assetLatencyMs": {
+        "p50": 2.642,
+        "p95": 8.218
+      },
+      "elapsedMs": 429.287,
+      "processCpuMs": {
+        "user": 223.846,
+        "system": 22.029
+      },
+      "processRssBytes": {
+        "final": 95997952,
+        "peakSampled": 96436224
+      },
+      "eventLoopDelayMs": {
+        "p95": 18.547,
+        "max": 43.909
+      },
+      "bytes": {
+        "assets": 1011300,
+        "media": 2097152
+      },
+      "assetHeaders": {
+        "cacheControl": "public, max-age=300, must-revalidate",
+        "etag": "W/\"2781-1a149b6c90b\"",
+        "contentType": "text/css; charset=UTF-8"
+      }
+    },
+    {
+      "concurrentDownloads": 5,
+      "assetRequests": 100,
+      "overlappedAssetRequests": 100,
+      "assetLatencyMs": {
+        "p50": 1.085,
+        "p95": 4.323
+      },
+      "elapsedMs": 355.495,
+      "processCpuMs": {
+        "user": 142.035,
+        "system": 38.39
+      },
+      "processRssBytes": {
+        "final": 114216960,
+        "peakSampled": 114216960
+      },
+      "eventLoopDelayMs": {
+        "p95": 10.994,
+        "max": 23.118
+      },
+      "bytes": {
+        "assets": 1011300,
+        "media": 10485760
+      },
+      "assetHeaders": {
+        "cacheControl": "public, max-age=300, must-revalidate",
+        "etag": "W/\"2781-1a149b6c90b\"",
+        "contentType": "text/css; charset=UTF-8"
+      }
+    }
+  ]
+}
