@@ -29,7 +29,7 @@ No credentials or external service are needed for local-file development. YouTub
 
 ## Validation and reporting
 
-There is no real automated test suite: `npm test` deliberately exits 1 with “no test specified”. There is no build or typecheck script. Never report those checks as passing or add a dummy passing test.
+Run `npm test` for the Node built-in regression suite. Tests own isolated servers on random loopback ports and temporary media/log directories. There is no build or typecheck script; do not report those checks as passing.
 
 For documentation-only work, check links, source references and `git diff --check`; no application test changes are needed. For behavior changes, add focused regression coverage using a lightweight runner, preferably Node's built-in test runner, and cover the failure being fixed. Do not assume cloud-only helpers outside the checkout exist in another environment.
 

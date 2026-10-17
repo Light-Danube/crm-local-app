@@ -342,11 +342,11 @@
       }
 
       videoPlayer.addEventListener('play', () => {
-        socket.emit("player start", videoPlayer.play())
+        socket.emit("player start")
       });
 
       videoPlayer.addEventListener("pause", () =>
-        socket.emit("player pause", videoPlayer.pause())
+        socket.emit("player pause")
       );
 
       videoPlayer.addEventListener("seeking", () =>
@@ -354,7 +354,7 @@
       );
 
       volumeControl.addEventListener("input", () =>
-        socket.emit("player volumeupdate", volumeControl.value)
+        socket.emit("player volumeupdate", Number(volumeControl.value))
       );
 
       uploadButton.addEventListener("click", function () {
@@ -429,7 +429,7 @@
       //VIDEO PARAMETERS:
       // Loop
       toggleLoopButton.addEventListener('change', () => {
-        socket.emit("toggle loop", { masterPageID });
+        socket.emit("toggle loop", toggleLoopButton.checked);
         if (toggleLoopButton.checked) {
           videoPlayer.loop = true;
         } else {
@@ -441,7 +441,7 @@
       //Toggle inversion checkbox event listener
       toggleInversionCheckbox.addEventListener("change", () => {
         // Emit the inversion status to the server
-        socket.emit("toggle inversion", { masterPageID });
+        socket.emit("toggle inversion", toggleInversionCheckbox.checked);
         // Apply the inversion effect locally on the master page
         if (toggleInversionCheckbox.checked) {
           videoPlayer.style.transform = "scaleX(-1) translateX(1%)";
@@ -452,7 +452,7 @@
 
       // Event listener for the "Optimize Color" checkbox
       optimizeColorButton.addEventListener("change", () => {
-          socket.emit("optimize color", { masterPageID });
+          socket.emit("optimize color", optimizeColorButton.checked);
           // Update the state of the "Optimize Color" checkbox
           optimizeColorChecked = optimizeColorButton.checked;
           // Apply filters based on the state of both checkboxes
@@ -462,14 +462,14 @@
       // Event listener for the "Enhance Details" checkbox
       enhanceDetailsCheckbox.addEventListener("change", () => {
           // Emit the enhance details event to the server along with the checkbox state
-          socket.emit("toggle enhance details", enhanceDetailsCheckbox.checked, { masterPageID });
+          socket.emit("toggle enhance details", enhanceDetailsCheckbox.checked);
           // Apply filters based on the state of both checkboxes
           applyFilters();
       });
 
       optimizeBackgroundCheckbox.addEventListener("change", () => {
         // Emit the enhance details event to the server along with the checkbox state
-        socket.emit("toggle back details", optimizeBackgroundCheckbox.checked, { masterPageID });
+        socket.emit("toggle back details", optimizeBackgroundCheckbox.checked);
         // Apply filters based on the state of both checkboxes
         applyFilters();
       });
