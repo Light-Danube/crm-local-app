@@ -1,6 +1,6 @@
 # Роадмапа невеликих оновлень
 
-Дата: 2026-10-17. База: `4d0830a`. Ціль — безпечніша робота з локальним відео, надійне з'єднання контролера з одним екраном і вимірюване покращення швидкодії без зміни стеку. «Єднання» тут означає pairing, reconnect і узгоджений стан двох пристроїв. Збільшення кількості екранів — окреме продуктове рішення.
+Дата: 2026-10-17. База: `4d0830a`. Ціль — безпечніша робота з локальним відео, надійне з'єднання контролера з кількома авторизованими екранами і вимірюване покращення швидкодії без зміни стеку. «Єднання» тут означає pairing, reconnect і узгоджений стан двох пристроїв. Уточнення користувача: підтримати більше одного папета; окремий PR 7a додає bounded multi-display та перевірки реального video flow.
 
 Документ фіксує план і стан виконання. Історичний огляд описує початкову базу; актуальний прогрес наведено нижче. [Огляд безпеки](security/REVIEW-2026-10-17.md) пояснює підтверджені ризики й межі перевірки. Усі роботи — окремі draft PR; оцінки в людино-днях орієнтовні та включають регресійні перевірки. Кожен PR має працювати самостійно й не залишати залежний від іншого PR зламаний контракт.
 
@@ -12,7 +12,9 @@
 - PR 4: owner auth до upload, серверні media ID, MP4/WebM signatures, size/concurrency/disk/session quotas, cleanup partial/rejected uploads та авторизовані media URL в обох клієнтах. Публічні legacy media routes закрито.
 - PR 5: вилучено невикористані dependencies, задекларовано прямий cors, оновлено сумісні Express/Socket.IO та lockfile. Production audit: 0; full: 3 high package findings у nodemon/chokidar/braces, з reachability та планом у [звіті](security/dependency-update-2026-10-17.md).
 - PR 6: exact allowed origins для HTTP/Socket.IO (обидва transports), явна no-Origin policy; YouTube має bounded concurrency/rate/deadline, cancellation та stream-error handling. 48 тестів, fake upstream; реальний YouTube не перевірявся.
-- PR 7–12: очікують виконання.
+- PR 7: lifecycle кімнат, ідемпотентне pairing, безпечне switching/disconnect та cleanup неактивних сесій; 54 тести, включно з 20 циклами кімнат.
+- PR 7a: підтримка кількох папетів за уточненням користувача — в роботі.
+- PR 8–12: очікують виконання.
 
 ## Послідовність
 
@@ -25,6 +27,7 @@
 | 5 | P1 / 0.5–1 д. | Прибрати перевірені невикористані production dependencies (`reload`, `uuid`, за потреби `node-fetch`); задекларувати прямий `cors`; оновити сумісні Express/Socket.IO транзитивні залежності з lockfile. | Можна почати паралельно з PR 1–2, але перед випуском перевірити інтеграцію з PR 3–4. Порівняти full/prod audit; жодного непоясненого нового finding. Залишкові findings мають reachability-оцінку й окремий план; major migrations — окремо. Smoke + auth/negative tests проходять після `npm ci`. |
 | 6 | P1 / 0.5–1 д. | Явні allowed origins для HTTP і WebSocket, перевірка handshake; обмеження частоти/concurrency, timeout/cancellation та stream errors у YouTube route. | Чужий origin відхиляється, дозволений працює; політика для клієнтів без Origin явна. Фальшивий upstream у тесті показує timeout, cancel та error без зависання/витоку. Не завантажувати реальні YouTube-відео в CI; інтеграцію з сервісом перевіряти окремо. |
 | 7 | P1 / 1 д. | Єдиний lifecycle session/room: один namespace `/playerControls`, cleanup старої кімнати при перепідключенні, ідемпотентний join, актуальний лічильник екранів. | Залежить від PR 3. Після 20 циклів pairing/switch/disconnect немає stale members і доставки в попередню кімнату. Disconnect старого socket не видаляє нового власника; `updatePuppets` оновлюється після виходу. Upload notification доставляється один раз правильному екрану. |
+| 7a | P1 / уточнення | Кілька папетів: незалежні display tokens, bounded slots, reconnect/revoke кожного display, актуальний лічильник і новий pairing-код для наступного екрана. | Команди й upload доходять рівно один раз до кожного з трьох екранів; чужа сесія ізольована; duplicate token не перехоплює display; межа configurable. Перевірити відео браузером. |
 | 8 | P1 / 1–2 д. | Reconnect UI: `connecting/connected/reconnecting/disconnected`, автоматичне rejoin із token, явне відновлення сесії та snapshot `{media,time,paused,volume,effects,revision}`. | Залежить від PR 7. Після короткого network drop display повертається до доступної сесії, отримує актуальний стан і не виконує старі команди. Після restart сервера показує потребу повторного pairing, якщо збереження сесій не реалізовано. Автоплей-помилка дає видиму кнопку відновлення. |
 | 9 | P2 / 0.5–1 д. | Прибрати зайві Blob allocations: revoke локального object URL при заміні/закритті; YouTube preview передавати як stream URL, а не чекати `response.blob()`. Listener `loadedmetadata` робити одноразовим/керованим. | Після 20 замін файлу кількість активних object URLs обмежена одним; preview може починати буферизацію до завершення download. Покрити cancel file selection. Перевірити браузером memory trend й autoplay, а не лише HTTP. Залежить від узгоджених media URL у PR 4/6. |
 | 10 | P2 / 1 д. | Після вимірювання замінити `statSync` і самописний Range handler на безпечну стандартну видачу медіа; додати conditional caching для статичних assets. | Зберегти auth/containment із PR 2/4; `bytes=0-9`, open-ended і suffix ranges, 416, client abort та stream error мають тести. Повторний asset request дає 304; HTML не отримує довгий immutable cache. Не стискати вже стиснене відео без вимірювання. |
@@ -57,4 +60,4 @@
 
 ## Поки що поза обсягом
 
-Redis/multi-instance adapters, транскодування, великі frontend migrations, кілька екранів на контролер і повна синхронізація кадрів. Вони потребують вимог/метрик, яких зараз немає. План не залежить від нових платних сервісів.
+Redis/multi-instance adapters, транскодування, великі frontend migrations, повна синхронізація кадрів. Вони потребують вимог/метрик, яких зараз немає. План не залежить від нових платних сервісів.
