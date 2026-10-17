@@ -181,6 +181,7 @@ async function log(message) {
 
 // Log socket metadata only: credentials and pairing codes never enter logs.
 async function logCurrentConnections() {
+  sessionStore.cleanupIdle();
   await log(`** Current Connections (${new Date().toLocaleString()}):\n`);
   for (const session of sessionStore.sessions.values()) {
     await log(`- Controller: ${session.controllerSocketId || '-'}; Display: ${session.displaySocketId || '-'}\n`);
@@ -242,9 +243,11 @@ controls.on('connection', socket => {
       return;
     }
     const session = socket.data.session;
+    const currentSession = session && sessionStore.sessions.get(session.id) === session;
     const allowed = event === 'connectToMaster'
-      ? socket.data.role === 'pending'
-      : socket.data.role === 'controller' && session?.controllerSocketId === socket.id;
+      ? socket.data.role === 'pending' ||
+        (socket.data.role === 'display' && currentSession && session.displaySocketId === socket.id)
+      : socket.data.role === 'controller' && currentSession && session.controllerSocketId === socket.id;
     if (!allowed) {
       sessionFailure(socket, 'FORBIDDEN', 'This role cannot perform this command', event);
       return;
@@ -254,13 +257,30 @@ controls.on('connection', socket => {
 
   socket.on('connectToMaster', code => {
     try {
+      const previous = socket.data.session;
+      if (socket.data.role === 'display' && socket.data.lastPairingCode === code) {
+        sessionStore.touch(previous);
+        socket.emit('masterConnected', { sessionId: previous.id });
+        updateDisplayCount(previous);
+        return;
+      }
       const { session, sessionId, displayToken } = sessionStore.pair(
         code, socket.handshake.address,
-        session => !session.displaySocketId && Boolean(session.controllerSocketId),
+        session => (!session.displaySocketId || session.displaySocketId === socket.id) && Boolean(session.controllerSocketId),
       );
+      // Admission and credential creation succeed before changing the old room.
+      if (previous && previous !== session) {
+        socket.leave(previous.id);
+        if (previous.displaySocketId === socket.id) {
+          previous.displaySocketId = null;
+          sessionStore.touch(previous);
+        }
+        updateDisplayCount(previous);
+      }
       session.displaySocketId = socket.id;
       socket.data.role = 'display';
       socket.data.session = session;
+      socket.data.lastPairingCode = code;
       socket.join(session.id);
       socket.emit('masterConnected', { sessionId, displayToken });
       updateDisplayCount(session);
@@ -273,7 +293,10 @@ controls.on('connection', socket => {
     const session = socket.data.session;
     if (session) {
       const field = socket.data.role === 'controller' ? 'controllerSocketId' : 'displaySocketId';
-      if (session[field] === socket.id) session[field] = null;
+      if (session[field] === socket.id) {
+        session[field] = null;
+        if (sessionStore.sessions.get(session.id) === session) sessionStore.touch(session);
+      }
       updateDisplayCount(session);
     }
     void log(`** ${new Date().toLocaleString()} - Socket ${socket.id} disconnected`);
