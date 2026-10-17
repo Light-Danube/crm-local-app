@@ -107,7 +107,7 @@ test('invalid tokens and duplicate sockets reject; only disconnected owners and 
   await pending;
   const count = once(resumedOwner, 'updatePuppets');
   await disconnect(f, display);
-  assert.deepEqual(await count, ['']);
+  assert.deepEqual(await count, [{ count: 0, maxDisplays: 5, displays: [{ displayId: credentials.displayId, connected: false }] }]);
   const resumedDisplay = await f.connect(displayAuth);
   const delivered = once(resumedDisplay, 'timeupdate');
   resumedOwner.emit('player timeupdate', 10);

@@ -32,7 +32,7 @@
             <div class="info">
               <!-- Instruction Set -->
               <p class="text_op" ><strong>ПРОЧИТАЙТЕ ІНСТРУКЦІЮ!!!</strong></p>
-              <p class="text_op" id="connectedPuppets"></p>
+              <div class="text_op" id="connectedPuppets" aria-live="polite"></div>
               <p class="text_op" id="showConnectionID">
                 Скопіююйте наступний код у вашу /video сторінку, щоб приєднатися до цього контролера.
                 Код: ${masterPageID}
@@ -242,6 +242,10 @@
       const refreshPairingButton = document.getElementById('refreshPairing');
 
       function showPairing(pairing) {
+        if (controllerSession) {
+          Object.assign(controllerSession, { pairingCode: pairing.pairingCode, expiresAt: pairing.expiresAt });
+          sessionStorage.setItem('controllerSession', JSON.stringify(controllerSession));
+        }
         connectionCodeElement.textContent = `КОД ДОСТУПУ: ${pairing.pairingCode} (до ${new Date(pairing.expiresAt).toLocaleTimeString('uk-UA')})`;
       }
 
@@ -544,9 +548,34 @@
         videoPlayer.src = null
       });
 
-      socket.on('updatePuppets', (puppetIds) => {
-        const connectedText = puppetIds.length > 0 ? `Connected Puppets: ${puppetIds}` : 'No connected puppets';
-        puppetListElement.textContent = connectedText;
+      socket.on('pairing updated', showPairing);
+      socket.on('updatePuppets', ({ count, maxDisplays, displays }) => {
+        puppetListElement.replaceChildren();
+        const summary = document.createElement('div');
+        summary.textContent = `Підключено екранів: ${count}. Зайнято місць: ${displays.length}/${maxDisplays}`;
+        puppetListElement.append(summary);
+        displays.forEach((display, index) => {
+          const row = document.createElement('div');
+          const label = document.createElement('span');
+          label.textContent = `Екран ${index + 1}: ${display.connected ? 'підключено' : 'відключено'} `;
+          const remove = document.createElement('button');
+          remove.type = 'button';
+          remove.textContent = 'Видалити';
+          remove.addEventListener('click', async () => {
+            remove.disabled = true;
+            try {
+              const response = await fetch(`/api/sessions/${masterPageID}/displays/${display.displayId}`, {
+                method: 'DELETE', headers: { Authorization: `Bearer ${ownerToken}` },
+              });
+              if (!response.ok) throw new Error();
+            } catch {
+              remove.disabled = false;
+              alert('Не вдалося видалити екран. Спробуйте ще раз.');
+            }
+          });
+          row.append(label, remove);
+          puppetListElement.append(row);
+        });
       });
 
       socket.on('session error', () => { alert('Дію заборонено. Перевірте сесію та код доступу.'); });

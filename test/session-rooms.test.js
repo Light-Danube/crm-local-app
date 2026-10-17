@@ -16,7 +16,7 @@ async function disconnect(f, socket) {
 }
 
 test('20 pairing, idempotent join, switch and disconnect cycles leave no stale rooms or deliveries', async t => {
-  const f = await fixture(t, { sessionOptions: { maxPairingAttempts: 100 } });
+  const f = await fixture(t, { sessionOptions: { maxPairingAttempts: 100, maxDisplays: 40 } });
   const first = await f.createSession();
   const second = await f.createSession();
   const firstOwner = await f.connectController(first);
@@ -31,11 +31,11 @@ test('20 pairing, idempotent join, switch and disconnect cycles leave no stale r
     const serverDisplay = controls.sockets.get(display.id);
     let count = once(firstOwner, 'updatePuppets');
     const credentials = await join(display, firstCode);
-    assert.deepEqual(await count, [display.id]);
+    assert.equal((await count)[0].count, 1);
     for (let repeat = 0; repeat < 2; repeat++) {
       count = once(firstOwner, 'updatePuppets');
-      assert.deepEqual(await join(display, firstCode), { sessionId: first.sessionId });
-      assert.deepEqual(await count, [display.id]);
+      assert.deepEqual(await join(display, firstCode), { sessionId: first.sessionId, displayId: credentials.displayId });
+      assert.equal((await count)[0].count, 1);
     }
     assert.equal(f.sessionStore.authenticateDisplay(first.sessionId, credentials.displayToken), firstSession);
     assert.deepEqual([...serverDisplay.rooms].sort(), [display.id, first.sessionId].sort());
@@ -44,10 +44,10 @@ test('20 pairing, idempotent join, switch and disconnect cycles leave no stale r
     const entered = once(secondOwner, 'updatePuppets');
     const switched = await join(display, secondCode);
     assert.equal(switched.sessionId, second.sessionId);
-    assert.deepEqual(await left, ['']);
-    assert.deepEqual(await entered, [display.id]);
-    assert.equal(firstSession.displaySocketId, null);
-    assert.equal(secondSession.displaySocketId, display.id);
+    assert.equal((await left)[0].count, 0);
+    assert.equal((await entered)[0].count, 1);
+    assert.equal(firstSession.displays.get(credentials.displayId).socketId, null);
+    assert.equal(secondSession.displays.get(switched.displayId).socketId, display.id);
     assert.equal(controls.adapter.rooms.has(first.sessionId), false);
     assert.deepEqual([...serverDisplay.rooms].sort(), [display.id, second.sessionId].sort());
     assert.equal(f.sessionStore.authenticateDisplay(first.sessionId, credentials.displayToken), firstSession);
@@ -63,16 +63,16 @@ test('20 pairing, idempotent join, switch and disconnect cycles leave no stale r
     const exited = once(secondOwner, 'updatePuppets');
     const displayId = display.id;
     await disconnect(f, display);
-    assert.deepEqual(await exited, ['']);
-    assert.equal(secondSession.displaySocketId, null);
+    assert.equal((await exited)[0].count, 0);
+    assert.equal(secondSession.displays.get(switched.displayId).socketId, null);
     assert.equal(controls.adapter.rooms.has(second.sessionId), false);
     assert.equal(controls.adapter.rooms.has(displayId), false);
     assert.equal(serverDisplay.rooms.size, 0);
   }
 });
 
-test('failed switch preserves existing room and credentials; admission succeeds after target display leaves', async t => {
-  const f = await fixture(t, { sessionOptions: { maxPairingAttempts: 100 } });
+test('failed switch preserves existing room and credentials; revoking a disconnected target releases capacity', async t => {
+  const f = await fixture(t, { sessionOptions: { maxPairingAttempts: 100, maxDisplays: 1 } });
   const first = await f.createSession();
   const second = await f.createSession();
   const owner = await f.connectController(first);
@@ -80,17 +80,19 @@ test('failed switch preserves existing room and credentials; admission succeeds 
   const display = await f.connect();
   const occupied = await f.connect();
   const credentials = await join(display, first.pairingCode);
-  await join(occupied, second.pairingCode);
+  const occupiedCredentials = await join(occupied, second.pairingCode);
   const code = f.sessionStore.rotatePairing(f.sessionStore.sessions.get(second.sessionId)).pairingCode;
   const rejected = once(display, 'session error');
   display.emit('connectToMaster', code);
-  assert.equal((await rejected)[0].code, 'DISPLAY_OCCUPIED');
-  assert.equal(f.sessionStore.authenticateDisplay(first.sessionId, credentials.displayToken).displaySocketId, display.id);
+  assert.equal((await rejected)[0].code, 'DISPLAY_LIMIT');
+  assert.equal(f.sessionStore.authenticateDisplayIdentity(first.sessionId, credentials.displayToken).display.socketId, display.id);
   assert.ok(f.io.of('/playerControls').sockets.get(display.id).rooms.has(first.sessionId));
   const delivered = once(display, 'pause');
   owner.emit('player pause');
   await delivered;
   await disconnect(f, occupied);
+  const revoked = await fetch(`${f.base}/api/sessions/${second.sessionId}/displays/${occupiedCredentials.displayId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${second.ownerToken}` } });
+  assert.equal(revoked.status, 204);
   assert.equal((await join(display, code)).sessionId, second.sessionId);
 });
 
