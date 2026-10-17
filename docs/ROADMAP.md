@@ -13,7 +13,7 @@
 - PR 5: вилучено невикористані dependencies, задекларовано прямий cors, оновлено сумісні Express/Socket.IO та lockfile. Production audit: 0; full: 3 high package findings у nodemon/chokidar/braces, з reachability та планом у [звіті](security/dependency-update-2026-10-17.md).
 - PR 6: exact allowed origins для HTTP/Socket.IO (обидва transports), явна no-Origin policy; YouTube має bounded concurrency/rate/deadline, cancellation та stream-error handling. 48 тестів, fake upstream; реальний YouTube не перевірявся.
 - PR 7: lifecycle кімнат, ідемпотентне pairing, безпечне switching/disconnect та cleanup неактивних сесій; 54 тести, включно з 20 циклами кімнат.
-- PR 7a: підтримка кількох папетів за уточненням користувача — в роботі.
+- PR 7a: кілька папетів реалізовано: default 5 незалежних display identities, reconnect/revoke кожного, автоматичний новий pairing-код, актуальні count/slots. Chromium перевірив upload, decode, play/pause на трьох display одночасно.
 - PR 8–12: очікують виконання.
 
 ## Послідовність

@@ -21,7 +21,7 @@ test('server identities, role tokens and pairing codes are unique and contain no
     assert.match(item.pairingCode, /^\d{6}$/);
     assert.ok(item.ownerToken.length >= 43);
     assert.equal(item.session.controllerSocketId, null);
-    assert.equal(item.session.displaySocketId, null);
+    assert.equal(item.session.displays.size, 0);
     assert.equal(store.authenticateOwner(item.sessionId, item.ownerToken), item.session);
     assert.ok(!JSON.stringify([...store.sessions]).includes(item.ownerToken));
   }
@@ -67,7 +67,7 @@ test('successful pair consumes its code; rotation invalidates old code and grant
   fails(() => store.pair(rotated.pairingCode, 'ip-one'), 'INVALID_PAIRING_CODE');
   const next = store.rotatePairing(created.session);
   const replaced = store.pair(next.pairingCode, 'ip-two');
-  fails(() => store.authenticateDisplay(created.sessionId, paired.displayToken), 'UNAUTHORIZED');
+  assert.equal(store.authenticateDisplay(created.sessionId, paired.displayToken), created.session);
   assert.equal(store.authenticateDisplay(created.sessionId, replaced.displayToken), created.session);
   fails(() => store.rotatePairing({ id: created.sessionId }), 'UNAUTHORIZED');
 });
@@ -120,7 +120,7 @@ test('session capacity and injected limits bound allocation', () => {
   store.create();
   fails(() => store.create(), 'SESSION_LIMIT');
   assert.equal(store.sessions.size, 1);
-  for (const name of ['pairingTtlMs', 'maxSessions', 'maxPairingAttempts', 'attemptWindowMs', 'maxTrackedAttempts', 'idleTtlMs']) {
+  for (const name of ['pairingTtlMs', 'maxSessions', 'maxDisplays', 'maxPairingAttempts', 'attemptWindowMs', 'maxTrackedAttempts', 'idleTtlMs']) {
     for (const value of [0, -1, 1.5, Infinity]) {
       assert.throws(() => createSessionStore({ [name]: value }), TypeError);
     }
@@ -151,10 +151,10 @@ test('active sockets never expire and disconnect touch starts a fresh idle inter
   advance(1000);
   assert.equal(store.cleanupIdle(), 0);
   owner.session.controllerSocketId = null;
-  owner.session.displaySocketId = 'display';
+  owner.session.displays.set('display', { id: 'display', socketId: 'display' });
   advance(1000);
   assert.equal(store.cleanupIdle(), 0);
-  owner.session.displaySocketId = null;
+  owner.session.displays.get('display').socketId = null;
   store.touch(owner.session);
   advance(99);
   assert.equal(store.cleanupIdle(), 0);

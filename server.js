@@ -60,6 +60,17 @@ app.post('/api/sessions/:sessionId/pairing', (req, res) => {
   }
 });
 
+app.delete('/api/sessions/:sessionId/displays/:displayId', (req, res) => {
+  try {
+    const session = sessionStore.authenticateOwner(req.params.sessionId, bearer(req));
+    const display = sessionStore.revokeDisplay(session, req.params.displayId);
+    if (!display) return res.status(404).json({ error: { code: 'DISPLAY_NOT_FOUND' } });
+    if (display.socketId) controls.sockets.get(display.socketId)?.disconnect(true);
+    updateDisplayCount(session);
+    res.status(204).end();
+  } catch (error) { sessionHttpError(res, error); }
+});
+
 // Run before public static middleware, which otherwise normalizes dot segments
 // and can redirect malformed media paths before the media routes see them.
 app.use((req, res, next) => {
@@ -184,7 +195,7 @@ async function logCurrentConnections() {
   sessionStore.cleanupIdle();
   await log(`** Current Connections (${new Date().toLocaleString()}):\n`);
   for (const session of sessionStore.sessions.values()) {
-    await log(`- Controller: ${session.controllerSocketId || '-'}; Display: ${session.displaySocketId || '-'}\n`);
+    await log(`- Controller: ${session.controllerSocketId || '-'}; Display: ${[...session.displays.values()].filter(display => display.socketId).length}\n`);
   }
 }
 
@@ -194,7 +205,10 @@ function sessionFailure(socket, code, message, event) {
 }
 function updateDisplayCount(session) {
   if (session.controllerSocketId) {
-    controls.to(session.controllerSocketId).emit('updatePuppets', session.displaySocketId || '');
+    const displays = [...session.displays.values()].map(display => ({ displayId: display.id, connected: Boolean(display.socketId) }));
+    controls.to(session.controllerSocketId).emit('updatePuppets', {
+      count: displays.filter(display => display.connected).length, maxDisplays: sessionStore.maxDisplays, displays,
+    });
   }
 }
 
@@ -209,16 +223,18 @@ controls.use((socket, next) => {
         !['controller', 'display'].includes(auth.role)) {
       throw Object.assign(new Error('Invalid session credentials'), { code: 'UNAUTHORIZED' });
     }
-    const session = auth.role === 'controller'
-      ? sessionStore.authenticateOwner(auth.sessionId, auth.token)
-      : sessionStore.authenticateDisplay(auth.sessionId, auth.token);
-    const field = auth.role === 'controller' ? 'controllerSocketId' : 'displaySocketId';
-    if (session[field]) {
+    const identity = auth.role === 'display' ? sessionStore.authenticateDisplayIdentity(auth.sessionId, auth.token) : null;
+    const session = identity ? identity.session : sessionStore.authenticateOwner(auth.sessionId, auth.token);
+    const occupied = identity ? identity.display.socketId : session.controllerSocketId;
+    if (occupied) {
       throw Object.assign(new Error(`A ${auth.role} is already connected`), {
         code: auth.role === 'controller' ? 'CONTROLLER_OCCUPIED' : 'DISPLAY_OCCUPIED',
       });
     }
-    session[field] = socket.id;
+    if (identity) {
+      identity.display.socketId = socket.id;
+      socket.data.display = identity.display;
+    } else session.controllerSocketId = socket.id;
     socket.data.role = auth.role;
     socket.data.session = session;
     next();
@@ -232,7 +248,7 @@ controls.use((socket, next) => {
 controls.on('connection', socket => {
   if (socket.data.role === 'display') {
     socket.join(socket.data.session.id);
-    socket.emit('masterConnected', { sessionId: socket.data.session.id });
+    socket.emit('masterConnected', { sessionId: socket.data.session.id, displayId: socket.data.display.id });
   }
   if (socket.data.session) updateDisplayCount(socket.data.session);
   void log(`** ${new Date().toLocaleString()} - Socket ${socket.id} connected`);
@@ -246,7 +262,7 @@ controls.on('connection', socket => {
     const currentSession = session && sessionStore.sessions.get(session.id) === session;
     const allowed = event === 'connectToMaster'
       ? socket.data.role === 'pending' ||
-        (socket.data.role === 'display' && currentSession && session.displaySocketId === socket.id)
+        (socket.data.role === 'display' && currentSession && session.displays.get(socket.data.display?.id) === socket.data.display && socket.data.display.socketId === socket.id)
       : socket.data.role === 'controller' && currentSession && session.controllerSocketId === socket.id;
     if (!allowed) {
       sessionFailure(socket, 'FORBIDDEN', 'This role cannot perform this command', event);
@@ -260,29 +276,31 @@ controls.on('connection', socket => {
       const previous = socket.data.session;
       if (socket.data.role === 'display' && socket.data.lastPairingCode === code) {
         sessionStore.touch(previous);
-        socket.emit('masterConnected', { sessionId: previous.id });
+        socket.emit('masterConnected', { sessionId: previous.id, displayId: socket.data.display.id });
         updateDisplayCount(previous);
         return;
       }
-      const { session, sessionId, displayToken } = sessionStore.pair(
+      const { session, sessionId, display, displayId, displayToken, pairing } = sessionStore.pair(
         code, socket.handshake.address,
-        session => (!session.displaySocketId || session.displaySocketId === socket.id) && Boolean(session.controllerSocketId),
+        session => Boolean(session.controllerSocketId), socket.data.display,
       );
       // Admission and credential creation succeed before changing the old room.
       if (previous && previous !== session) {
         socket.leave(previous.id);
-        if (previous.displaySocketId === socket.id) {
-          previous.displaySocketId = null;
+        if (socket.data.display?.socketId === socket.id) {
+          socket.data.display.socketId = null;
           sessionStore.touch(previous);
         }
         updateDisplayCount(previous);
       }
-      session.displaySocketId = socket.id;
+      display.socketId = socket.id;
+      socket.data.display = display;
       socket.data.role = 'display';
       socket.data.session = session;
       socket.data.lastPairingCode = code;
       socket.join(session.id);
-      socket.emit('masterConnected', { sessionId, displayToken });
+      socket.emit('masterConnected', { sessionId, displayId, displayToken });
+      controls.to(session.controllerSocketId).emit('pairing updated', pairing);
       updateDisplayCount(session);
     } catch (error) {
       sessionFailure(socket, error.code || 'INVALID_PAIRING_CODE', error.message, 'connectToMaster');
@@ -292,9 +310,10 @@ controls.on('connection', socket => {
   socket.on('disconnect', () => {
     const session = socket.data.session;
     if (session) {
-      const field = socket.data.role === 'controller' ? 'controllerSocketId' : 'displaySocketId';
-      if (session[field] === socket.id) {
-        session[field] = null;
+      const identity = socket.data.role === 'controller' ? session : socket.data.display;
+      const field = socket.data.role === 'controller' ? 'controllerSocketId' : 'socketId';
+      if (identity?.[field] === socket.id) {
+        identity[field] = null;
         if (sessionStore.sessions.get(session.id) === session) sessionStore.touch(session);
       }
       updateDisplayCount(session);
@@ -360,6 +379,7 @@ if (require.main === module) {
     .map(([key, name]) => [key, Number(process.env[name])]));
   const application = createApplication({
     mediaLimits,
+    sessionOptions: process.env.SESSION_MAX_DISPLAYS === undefined ? {} : { maxDisplays: Number(process.env.SESSION_MAX_DISPLAYS) },
     allowedOrigins: process.env.ALLOWED_ORIGINS?.split(',').map(origin => origin.trim()),
     allowNoOrigin: process.env.ALLOW_NO_ORIGIN !== 'false',
   });

@@ -5,7 +5,7 @@
 This is a small video controller/display application, despite the repository name.
 - `server.js`: CommonJS Express HTTP server, authenticated disk uploads (`lib/media-service.js`), bounded YouTube proxy (`lib/youtube-route.js`) and Socket.IO namespace `/playerControls`. HTTP/Engine.IO share `lib/origin-policy.js`.
 - `master.html`: controller, local preview, upload and playback controls.
-- `video.html`: paired display/player.
+- `video.html`: paired display/player. A controller supports multiple independently authenticated displays (default 5 slots, configurable with `SESSION_MAX_DISPLAYS`). Disconnected identities keep their slots until owner revocation.
 - `index.html` and `public/`: entry page and static assets.
 - Server-issued session identity and hashed owner/display tokens live in `lib/session-store.js`; restarting the server loses sessions. See `docs/contracts/sessions.md` for HTTP and Socket.IO authentication. There is no database or build pipeline.
 
