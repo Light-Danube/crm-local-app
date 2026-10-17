@@ -6,23 +6,33 @@ const { Server } = require("socket.io");
 const cors = require('cors');
 
 const ytdl = require('ytdl-core');
-const sanitizeFilename = require('sanitize-filename');
 
 const { validateEvent } = require('./lib/socket-payloads');
 const { validateMediaFilename, resolveMediaPath } = require('./lib/media-path');
 const { createSessionStore } = require('./lib/session-store');
 const { createMediaService } = require('./lib/media-service');
+const { createOriginPolicy } = require('./lib/origin-policy');
+const { createYoutubeHandler } = require('./lib/youtube-route');
 
 function createApplication(options = {}) {
 
 const app = express();
 const server = createServer(app);
-const io = new Server(server);
+const originPolicy = createOriginPolicy({ allowedOrigins: options.allowedOrigins, allowNoOrigin: options.allowNoOrigin });
+const io = new Server(server, {
+  cors: { origin: originPolicy.corsOrigin, credentials: true },
+  allowRequest: (req, callback) => callback(null, originPolicy.isAllowed(req.headers.origin)),
+});
+io.engine.use((req, res, next) => {
+  if (!originPolicy.isAllowed(req.headers.origin)) return next(new Error('Origin not allowed'));
+  next();
+});
 const mediaRoot = options.mediaRoot || path.join(__dirname, 'uploads');
 
 const sessionStore = createSessionStore(options.sessionOptions);
 
-app.use(cors());
+app.use(originPolicy.middleware);
+app.use(cors({ origin: originPolicy.corsOrigin, credentials: true }));
 
 function sessionHttpError(res, error) {
   const code = ['RATE_LIMITED', 'SESSION_LIMIT'].includes(error.code) ? error.code : 'UNAUTHORIZED';
@@ -153,35 +163,8 @@ const mediaService = createMediaService({
 app.post('/upload', mediaService.upload);
 app.get('/media/:sessionId/:mediaId', mediaService.serve);
 
-// Получение YouTube видео и передача на клиент
-app.get('/youtube/:videoId', async (req, res) => {
-   try {
-      // Extract video ID from different URL formats
-      let videoId = req.params.videoId;
-
-      const videoURL = `https://www.youtube.com/watch?v=${videoId}`;
-
-      // Получение информации о видео
-      const info = await ytdl.getInfo(videoURL);
-
-      // Санитизация названия видео для использования в имени файла
-      const sanitizedTitle = sanitizeFilename(info.videoDetails.title);
-
-      // Кодирование названия файла для обработки специальных символов
-      const encodedFilename = encodeURIComponent(sanitizedTitle);
-
-      // Передача потока видео на клиент
-      res.header('Content-Disposition', `attachment; filename="${encodedFilename}.mp4"`);
-      ytdl(videoURL, {
-         filter: 'audioandvideo',
-         format: 'mp4',
-      }).pipe(res);
-   } catch (err) {
-      console.error('Error fetching YouTube video:', err);
-      res.status(500).send('Error fetching YouTube video');
-   }
-});
-
+// Metadata and media share a bounded deadline and cancellation lifecycle.
+app.get('/youtube/:videoId', createYoutubeHandler({ ytdl: options.ytdl || ytdl, ...options.youtubeOptions }));
 
 //LOGGING:
 // Centralized logging configuration
@@ -322,6 +305,7 @@ async function start(port = 3000, host) {
     server.once('error', reject);
     server.listen(port, host, () => {
       server.off('error', reject);
+      originPolicy.addLocalPort(server.address().port);
       resolve();
     });
   });
@@ -351,7 +335,11 @@ if (require.main === module) {
   const mediaLimits = Object.fromEntries(Object.entries(mediaLimitNames)
     .filter(([, name]) => process.env[name] !== undefined)
     .map(([key, name]) => [key, Number(process.env[name])]));
-  const application = createApplication({ mediaLimits });
+  const application = createApplication({
+    mediaLimits,
+    allowedOrigins: process.env.ALLOWED_ORIGINS?.split(',').map(origin => origin.trim()),
+    allowNoOrigin: process.env.ALLOW_NO_ORIGIN !== 'false',
+  });
   application.start().then(address => {
     console.log(`Server is running on http://localhost:${address.port}`);
   }).catch(error => {

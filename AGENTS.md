@@ -3,7 +3,7 @@
 ## Scope and architecture
 
 This is a small video controller/display application, despite the repository name.
-- `server.js`: CommonJS Express HTTP server, authenticated disk uploads (`lib/media-service.js`), YouTube proxy and Socket.IO namespace `/playerControls`.
+- `server.js`: CommonJS Express HTTP server, authenticated disk uploads (`lib/media-service.js`), bounded YouTube proxy (`lib/youtube-route.js`) and Socket.IO namespace `/playerControls`. HTTP/Engine.IO share `lib/origin-policy.js`.
 - `master.html`: controller, local preview, upload and playback controls.
 - `video.html`: paired display/player.
 - `index.html` and `public/`: entry page and static assets.
