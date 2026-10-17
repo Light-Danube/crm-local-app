@@ -2,35 +2,76 @@ const express = require('express');
 const { createServer } = require('http');
 const fs = require("fs");
 const path = require('path');
-const multer = require('multer');
 const { Server } = require("socket.io");
 const cors = require('cors');
 
 const ytdl = require('ytdl-core');
-const sanitizeFilename = require('sanitize-filename');
 
-const { validateEvent, validId } = require('./lib/socket-payloads');
+const { validateEvent } = require('./lib/socket-payloads');
+const { validateMediaFilename, resolveMediaPath } = require('./lib/media-path');
+const { createSessionStore } = require('./lib/session-store');
+const { createMediaService } = require('./lib/media-service');
+const { createOriginPolicy } = require('./lib/origin-policy');
+const { createYoutubeHandler } = require('./lib/youtube-route');
 
 function createApplication(options = {}) {
 
 const app = express();
 const server = createServer(app);
-const io = new Server(server);
+const originPolicy = createOriginPolicy({ allowedOrigins: options.allowedOrigins, allowNoOrigin: options.allowNoOrigin });
+const io = new Server(server, {
+  cors: { origin: originPolicy.corsOrigin, credentials: true },
+  allowRequest: (req, callback) => callback(null, originPolicy.isAllowed(req.headers.origin)),
+});
+io.engine.use((req, res, next) => {
+  if (!originPolicy.isAllowed(req.headers.origin)) return next(new Error('Origin not allowed'));
+  next();
+});
 const mediaRoot = options.mediaRoot || path.join(__dirname, 'uploads');
 
-const userSockets = new Map();
+const sessionStore = createSessionStore(options.sessionOptions);
 
-app.use(cors());
+app.use(originPolicy.middleware);
+app.use(cors({ origin: originPolicy.corsOrigin, credentials: true }));
 
-// Настройка папки для загрузки видео файлов
-const storage = multer.diskStorage({
-   destination: mediaRoot,
-   filename: (req, file, cb) => {
-     cb(null, file.originalname);
+function sessionHttpError(res, error) {
+  const code = ['RATE_LIMITED', 'SESSION_LIMIT'].includes(error.code) ? error.code : 'UNAUTHORIZED';
+  const status = code === 'RATE_LIMITED' ? 429 : code === 'SESSION_LIMIT' ? 503 : 401;
+  res.status(status).json({ error: { code, message: code === 'UNAUTHORIZED' ? 'Invalid session credentials' : error.message } });
+}
+
+app.post('/api/sessions', (req, res) => {
+  try {
+    const { sessionId, ownerToken, pairingCode, expiresAt } = sessionStore.create();
+    res.status(201).json({ sessionId, ownerToken, pairingCode, expiresAt });
+  } catch (error) {
+    sessionHttpError(res, error);
+  }
+});
+
+app.post('/api/sessions/:sessionId/pairing', (req, res) => {
+  try {
+    const authorization = req.get('authorization');
+    const token = typeof authorization === 'string' && /^Bearer ([^\s]+)$/.exec(authorization)?.[1];
+    const session = sessionStore.authenticateOwner(req.params.sessionId, token);
+    res.json(sessionStore.rotatePairing(session));
+  } catch (error) {
+    sessionHttpError(res, error);
+  }
+});
+
+// Run before public static middleware, which otherwise normalizes dot segments
+// and can redirect malformed media paths before the media routes see them.
+app.use((req, res, next) => {
+   const match = /^\/(?:videofile|uploads|video)\/(.*)$/i.exec(req.path);
+   if (!match) return next();
+   try {
+     validateMediaFilename(decodeURIComponent(match[1]));
+     next();
+   } catch (error) {
+     mediaError(res, error instanceof URIError ? { status: 400 } : error);
    }
- });
-
-const upload = multer({ storage: storage });
+});
 
 // Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -79,133 +120,51 @@ app.get('/video', (req, res) => {
    res.sendFile(path.join(__dirname, 'video.html'));
 });
 
-// Store video IDs associated with masterPageIDs
-const videoIds = {};
+// Legacy public media routes deliberately have no file-serving handlers.
+function mediaError(res, error) {
+  if (res.headersSent) return res.destroy();
+  res.status(error.status || 400).send('Media unavailable');
+}
 
-// Handle video requests from puppet page
-app.get("/video/:videoId", (req, res) => {
-   const { videoId } = req.params;
-   // Check if videoId exists and serve the corresponding video file
-   if (videoIds.hasOwnProperty(videoId)) {
-     const videoPath = path.join(mediaRoot, videoIds[videoId]);
-     res.sendFile(videoPath, { root: __dirname });
-   } else {
-     res.status(404).send("Video not found");
-   }
-});
-
-// Serve video files dynamically based on the requested file
-app.get('/videofile/:filename', (req, res) => {
-   const videoPath = path.join(mediaRoot, req.params.filename);
- 
-   try {
-     const stat = fs.statSync(videoPath);
-     const fileSize = stat.size;
- 
-     const range = req.headers.range;
- 
-     if (range) {
-       const parts = range.replace(/bytes=/, "").split("-");
-       const start = parseInt(parts[0], 10);
-       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
- 
-       if (start >= fileSize || end >= fileSize || start > end) {
-         throw new Error('Invalid byte range');
-       }
- 
-       const chunksize = (end - start) + 1;
-       const file = fs.createReadStream(videoPath, { start, end });
- 
-       const head = {
-         'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-         'Accept-Ranges': 'bytes',
-         'Content-Length': chunksize,
-         'Content-Type': 'video/mp4',
-         'Content-Disposition': 'attachment' // Optional: Encourage download
-       };
- 
-       res.writeHead(206, head);
-       file.pipe(res);
-     } else {
-       const head = {
-         'Content-Length': fileSize,
-         'Content-Type': 'video/mp4',
-         'Content-Disposition': 'attachment' // Optional: Encourage download
-       };
- 
-       res.writeHead(200, head);
-       fs.createReadStream(videoPath).pipe(res);
-     }
-   } catch (error) {
-     console.error('Error serving video file:', error);
-     res.status(400).send('Error serving video file'); // Handle errors gracefully
-   }
-});
-
-app.post('/upload', upload.single('video'), (req, res) => {
-   try {
-       const masterId = req.query.userID;
-       console.log("Received file:", req.file);
-       console.log("Emitted event by connection id:", masterId); 
-       if (masterId) {
-           if (req.file) {
-               console.log("Video loaded successfully to server.", req.file.filename);
-               //const videoURL = 'http://crm.ucreate.org.ua/uploads${req.file.filename}';
-               
-               //io.to(masterId).emit("file uploaded", { url: req.file.filename });
-               //res.redirect(`/video.html?video=${req.file.filename}`);
-               //io.to(masterId).emit("file uploaded", { url: videoURL })
-               io.to(masterId).emit("file uploaded", { videoId: req.file.filename });
-               res.redirect(`/video.html?video=${req.file.filename}`);
-           } else {
-               const youtubeUrl = req.body.youtubeUrl;
-               if (youtubeUrl) {
-                   res.redirect(`/video.html?video=${youtubeUrl}`);
-               } else {
-                   res.status(400).send('No file or YouTube URL provided');
-               }
-           }
-       } else {
-           res.status(404).send('Connection ID not found or invalid');
-       }
-   } catch (err) {
-       console.error('Error uploading:', err);
-       res.status(500).send('Error uploading');
+function bearer(req) {
+  return /^Bearer ([^\s]+)$/.exec(req.get('authorization') || '')?.[1];
+}
+function authenticateMedia(req, ownerOnly = false) {
+  const id = req.params.sessionId || req.query.sessionId;
+  let token = bearer(req);
+  if (!token && !ownerOnly) {
+    token = (req.get('cookie') || '').split(';').map(value => value.trim())
+      .find(value => value.startsWith('mediaAccess='))?.slice('mediaAccess='.length);
   }
+  try { return sessionStore.authenticateOwner(id, token); }
+  catch (error) {
+    if (ownerOnly) throw error;
+    return sessionStore.authenticateDisplay(id, token);
+  }
+}
+
+// A path-scoped HttpOnly cookie lets the native video element authenticate requests
+// without placing owner/display tokens in media URLs or exposing cookies to JS.
+app.post('/api/sessions/:sessionId/media-access', (req, res) => {
+  try {
+    if (!bearer(req)) throw Object.assign(new Error(), { code: 'UNAUTHORIZED' });
+    const session = authenticateMedia(req);
+    const secure = options.secureCookies || req.secure ? '; Secure' : '';
+    res.set('Set-Cookie', `mediaAccess=${bearer(req)}; Path=/media/${session.id}/; HttpOnly; SameSite=Strict${secure}`);
+    res.status(204).end();
+  } catch (error) { sessionHttpError(res, error); }
 });
-
-// Статическая директория для доступа к загруженным видео файлам
-app.use('/uploads', express.static(mediaRoot));
-
-// Получение YouTube видео и передача на клиент
-app.get('/youtube/:videoId', async (req, res) => {
-   try {
-      // Extract video ID from different URL formats
-      let videoId = req.params.videoId;
-
-      const videoURL = `https://www.youtube.com/watch?v=${videoId}`;
-
-      // Получение информации о видео
-      const info = await ytdl.getInfo(videoURL);
-
-      // Санитизация названия видео для использования в имени файла
-      const sanitizedTitle = sanitizeFilename(info.videoDetails.title);
-
-      // Кодирование названия файла для обработки специальных символов
-      const encodedFilename = encodeURIComponent(sanitizedTitle);
-
-      // Передача потока видео на клиент
-      res.header('Content-Disposition', `attachment; filename="${encodedFilename}.mp4"`);
-      ytdl(videoURL, {
-         filter: 'audioandvideo',
-         format: 'mp4',
-      }).pipe(res);
-   } catch (err) {
-      console.error('Error fetching YouTube video:', err);
-      res.status(500).send('Error fetching YouTube video');
-   }
+const mediaService = createMediaService({
+  mediaRoot,
+  limits: options.mediaLimits,
+  authenticate: req => authenticateMedia(req, req.method === 'POST'),
+  notify: (session, media) => io.of('/playerControls').to(session.id).emit('file uploaded', media),
 });
+app.post('/upload', mediaService.upload);
+app.get('/media/:sessionId/:mediaId', mediaService.serve);
 
+// Metadata and media share a bounded deadline and cancellation lifecycle.
+app.get('/youtube/:videoId', createYoutubeHandler({ ytdl: options.ytdl || ytdl, ...options.youtubeOptions }));
 
 //LOGGING:
 // Centralized logging configuration
@@ -220,196 +179,133 @@ async function log(message) {
   await logStream.write(`${message}\n`);
 }
 
-// Function to log current connections
+// Log socket metadata only: credentials and pairing codes never enter logs.
 async function logCurrentConnections() {
-  const formattedDate = new Date().toLocaleString();
-  await log(`** Current Connections (${formattedDate}):\n`);
-
-  for (const [masterId, masterSocket] of userSockets.entries()) {
-    await log(`- Master: ${masterSocket.id}\n`);
-    if (masterSocket.puppets) {
-      await log(`  - Puppet: ${Array.from(masterSocket.puppets)}\n`);
-    }
+  await log(`** Current Connections (${new Date().toLocaleString()}):\n`);
+  for (const session of sessionStore.sessions.values()) {
+    await log(`- Controller: ${session.controllerSocketId || '-'}; Display: ${session.displaySocketId || '-'}\n`);
   }
 }
 
-// Обработчик подключения к каналу playerControls
-io.of('/playerControls').on('connection', (socket) => {
-   console.log('A user connected to playerControls');
+const controls = io.of('/playerControls');
+function sessionFailure(socket, code, message, event) {
+  socket.emit('session error', { code, message, ...(event ? { event } : {}) });
+}
+function updateDisplayCount(session) {
+  if (session.controllerSocketId) {
+    controls.to(session.controllerSocketId).emit('updatePuppets', session.displaySocketId || '');
+  }
+}
 
-   // Validate every application packet before any handler reads or forwards it.
-   socket.use(([event, ...args], next) => {
-      if (!validateEvent(event, args)) {
-         socket.emit('error', `Invalid payload for ${event}`);
-         return;
-      }
-      next();
-   });
+controls.use((socket, next) => {
+  const auth = socket.handshake.auth;
+  if (auth && typeof auth === 'object' && !Array.isArray(auth) && Object.keys(auth).length === 0) {
+    socket.data.role = 'pending';
+    return next();
+  }
+  try {
+    if (!auth || typeof auth !== 'object' || Array.isArray(auth) ||
+        !['controller', 'display'].includes(auth.role)) {
+      throw Object.assign(new Error('Invalid session credentials'), { code: 'UNAUTHORIZED' });
+    }
+    const session = auth.role === 'controller'
+      ? sessionStore.authenticateOwner(auth.sessionId, auth.token)
+      : sessionStore.authenticateDisplay(auth.sessionId, auth.token);
+    const field = auth.role === 'controller' ? 'controllerSocketId' : 'displaySocketId';
+    if (session[field]) {
+      throw Object.assign(new Error(`A ${auth.role} is already connected`), {
+        code: auth.role === 'controller' ? 'CONTROLLER_OCCUPIED' : 'DISPLAY_OCCUPIED',
+      });
+    }
+    session[field] = socket.id;
+    socket.data.role = auth.role;
+    socket.data.session = session;
+    next();
+  } catch (error) {
+    const rejected = new Error(error.message);
+    rejected.data = { code: error.code || 'UNAUTHORIZED' };
+    next(rejected);
+  }
+});
 
-   // **Crucial fix:** Store the socket's user ID (if provided)
-   if (validId(socket.handshake.query.userID)) {
-      userSockets.set(socket.handshake.query.userID, socket);
-      socket.connectionSocketID = socket.handshake.query.userID;
-   }
+controls.on('connection', socket => {
+  if (socket.data.role === 'display') {
+    socket.join(socket.data.session.id);
+    socket.emit('masterConnected', { sessionId: socket.data.session.id });
+  }
+  if (socket.data.session) updateDisplayCount(socket.data.session);
+  void log(`** ${new Date().toLocaleString()} - Socket ${socket.id} connected`);
 
-   // **Immediate connection log using Promise:**
-   log(`** ${new Date().toLocaleString()} - User ${socket.id} connected`)
-   .catch((error) => {
-      // Handle any logging errors gracefully
-      console.error('Error logging connection:', error);
-   });
-
-   socket.on('connectToMaster', async (userID) => {
-      // Check if the userID exists in the Map object
-      if (userSockets.has(userID)) {
-        // Connect the puppet page to the master page
-        const masterSocket = userSockets.get(userID);
-        masterSocket.puppets = masterSocket.puppets || new Set();
-
-        // Check if the master already has 2 puppets
-        if (masterSocket.puppets && masterSocket.puppets.size >= 1) {
-         socket.emit('error', 'Master page already has the maximum number of puppets (1)');
-         return;
-        }
-
-        masterSocket.puppets.add(socket.id);
-        socket.connectionSocketID = userID;
-        socket.join(userID); // Join the socket to the master's room
-
-        // **Immediate log for becoming puppet:**
-        await log(`** ${new Date().toLocaleString()} - User ${socket.id} became puppet of master ${userID}`);
-
-        socket.emit('masterConnected', masterSocket.id);
-        console.log(masterSocket.puppets);
-        // Emit an event to the master page with the updated puppet count
-        masterSocket.emit('updatePuppets', Array.from(masterSocket.puppets || []).join(', '));
-      } else {
-        // If the userID doesn't exist, send an error message
-        socket.emit('error', 'No master page found with the provided userID');
-      }
-   });
-
-   socket.on('disconnect', async () => {
-      // **Логирование:**
-      const date = new Date().toLocaleDateString().replace(/\//g, '-');
-      const time = new Date().toLocaleTimeString();
-    
-      // **Проверка, является ли сокет мастером:**
-      if (userSockets.has(socket.id) && userSockets.get(socket.id).puppets) {
-        // **Логирование:**
-        await log(`** ${date} ${time} - Killing puppets of master ${socket.id}\n`);
-    
-        // **Удаление всех марионеток мастера:**
-        for (const puppetId of userSockets.get(socket.id).puppets) {
-          userSockets.delete(puppetId);
-    
-          // **Логирование:**
-          await log(`** ${date} ${time} - Killing puppet ${puppetId}\n`);
-        }
-    
-        // **Удаление мастера из userSockets:**
-        userSockets.delete(socket.id);
-      }
-
-      // Check if the socket is a master
-      if (socket.handshake.query.userID) {
-         // Remove the master socket from userSockets
-         userSockets.delete(socket.handshake.query.userID);
-      }
-    
-      // **Удаление марионетки из списка мастера:**
-      if (socket.connectionSocketID) {
-        const masterSocket = userSockets.get(socket.connectionSocketID);
-        if (masterSocket && masterSocket.puppets) {
-          masterSocket.puppets.delete(socket.id);
-    
-          // **Логирование:**
-          await log(`** ${date} ${time} - Killing puppet ${socket.id} from master list ${masterSocket.id}\n`);
-        }
-      }
-    
-      // **Логирование:**
-      await log(`** ${date} ${time} - Killing page socket ${socket.id} from userSockets\n`);
-   });    
-
-
-   // Обработчик события "player start"
-   socket.on("player start", () => {
-      console.log("server socked player started")
-      // Отправить событие "play" всем клиентам в канале playerControls
-      socket.to(socket.connectionSocketID).emit('play');
-   });
-
-   // Обработчик события "player pause"
-   socket.on("player pause", () => {
-      // Отправить событие "pause" всем клиентам в канале playerControls
-      socket.to(socket.connectionSocketID).emit("pause");
-   });
-
-   // Обработчик события "stop"
-   socket.on("stop", () => {
-      // Отправить событие "stop" всем клиентам в канале playerControls
-      socket.to(socket.connectionSocketID).emit("stop");
-   });
-
-   socket.on("player timeupdate", (time) => {
-      socket.to(socket.connectionSocketID).emit("timeupdate", time);
-   })
-
-   socket.on("player volumeupdate", (volume) => {
-      socket.to(socket.connectionSocketID).emit("volumeupdate", volume);
-   })
-
-   // Handle receiving video URL from controller page
-   socket.on("video url", (url) => {
-      // Broadcast the received URL to all clients (including the puppet page)
-      socket.to(socket.connectionSocketID).emit("video url", url);
-   });
-
-   // Handle receiving uploaded video URL from master page and emit it to puppet page
-   socket.on("video uploaded", ({ videoId, masterPageID }) => {
-      // Emit event to the puppet page with the unique identifier
-      socket.to(socket.connectionSocketID).emit("file uploaded", { videoId });
+  socket.use(([event, ...args], next) => {
+    if (!validateEvent(event, args)) {
+      socket.emit('error', `Invalid payload for ${event}`);
+      return;
+    }
+    const session = socket.data.session;
+    const allowed = event === 'connectToMaster'
+      ? socket.data.role === 'pending'
+      : socket.data.role === 'controller' && session?.controllerSocketId === socket.id;
+    if (!allowed) {
+      sessionFailure(socket, 'FORBIDDEN', 'This role cannot perform this command', event);
+      return;
+    }
+    next();
   });
 
-   //VIDEO PARAMETERS:
-   //Loop:
-   socket.on("toggle loop", (enabled) => {
-      socket.isVideoLoop = enabled;
-      socket.to(socket.connectionSocketID).emit("loop status", socket.isVideoLoop);
-   });
-   //Inversion:
-   socket.on("toggle inversion", (enabled) => {
-      socket.isVideoInverted = enabled;
-      socket.to(socket.connectionSocketID).emit("inversion status", socket.isVideoInverted);
-   });
+  socket.on('connectToMaster', code => {
+    try {
+      const { session, sessionId, displayToken } = sessionStore.pair(
+        code, socket.handshake.address,
+        session => !session.displaySocketId && Boolean(session.controllerSocketId),
+      );
+      session.displaySocketId = socket.id;
+      socket.data.role = 'display';
+      socket.data.session = session;
+      socket.join(session.id);
+      socket.emit('masterConnected', { sessionId, displayToken });
+      updateDisplayCount(session);
+    } catch (error) {
+      sessionFailure(socket, error.code || 'INVALID_PAIRING_CODE', error.message, 'connectToMaster');
+    }
+  });
 
-   // Handle color optimization button click
-   socket.on("optimize color", (enabled) => {
-      socket.isColorOptimized = enabled;
-      socket.to(socket.connectionSocketID).emit("color optimization status", socket.isColorOptimized);
-   });
+  socket.on('disconnect', () => {
+    const session = socket.data.session;
+    if (session) {
+      const field = socket.data.role === 'controller' ? 'controllerSocketId' : 'displaySocketId';
+      if (session[field] === socket.id) session[field] = null;
+      updateDisplayCount(session);
+    }
+    void log(`** ${new Date().toLocaleString()} - Socket ${socket.id} disconnected`);
+  });
 
-   //Handle video "enhancements":
-   socket.on("toggle enhance details", (isChecked) => {
-      // Emit the enhance details status to all clients (including puppet page)
-      socket.to(socket.connectionSocketID).emit("enhance details status", isChecked);
-   });
-   
-     //Handle video "background":
-   socket.on("toggle back details", (isChecked) => {
-      // Emit the enhance details status to all clients (including puppet page)
-      socket.to(socket.connectionSocketID).emit("background optimization status", isChecked);
-   });
+  // Rooms are selected exclusively from the authenticated server-side session.
+  const relay = (event, value, hasValue = true) => {
+    const target = socket.to(socket.data.session.id);
+    if (hasValue) target.emit(event, value); else target.emit(event);
+  };
+  socket.on('player start', () => relay('play', undefined, false));
+  socket.on('player pause', () => relay('pause', undefined, false));
+  socket.on('stop', () => relay('stop', undefined, false));
+  socket.on('player timeupdate', time => relay('timeupdate', time));
+  socket.on('player volumeupdate', volume => relay('volumeupdate', volume));
+  socket.on('video url', url => relay('video url', url));
+  socket.on('toggle loop', enabled => relay('loop status', enabled));
+  socket.on('toggle inversion', enabled => relay('inversion status', enabled));
+  socket.on('optimize color', enabled => relay('color optimization status', enabled));
+  socket.on('toggle enhance details', enabled => relay('enhance details status', enabled));
+  socket.on('toggle back details', enabled => relay('background optimization status', enabled));
 });
 
 // Explicit lifecycle lets each regression test own its server and runtime files.
 let periodicLogging;
 async function start(port = 3000, host) {
+  await mediaService.ready;
   await new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(port, host, () => {
       server.off('error', reject);
+      originPolicy.addLocalPort(server.address().port);
       resolve();
     });
   });
@@ -421,17 +317,29 @@ async function start(port = 3000, host) {
 async function stop() {
   clearInterval(periodicLogging);
   await new Promise(resolve => io.close(resolve));
-  userSockets.clear();
+  sessionStore.clear();
   await new Promise(resolve => logStream.end(resolve));
 }
 
-return { app, server, io, start, stop };
+return { app, server, io, start, stop, sessionStore, mediaService };
 }
 
 module.exports = { createApplication };
 
 if (require.main === module) {
-  const application = createApplication();
+  const mediaLimitNames = {
+    maxFileBytes: 'UPLOAD_MAX_FILE_BYTES', maxConcurrent: 'UPLOAD_MAX_CONCURRENT',
+    maxSessionBytes: 'UPLOAD_MAX_SESSION_BYTES', maxTotalBytes: 'UPLOAD_MAX_TOTAL_BYTES',
+    maxSessionFiles: 'UPLOAD_MAX_SESSION_FILES',
+  };
+  const mediaLimits = Object.fromEntries(Object.entries(mediaLimitNames)
+    .filter(([, name]) => process.env[name] !== undefined)
+    .map(([key, name]) => [key, Number(process.env[name])]));
+  const application = createApplication({
+    mediaLimits,
+    allowedOrigins: process.env.ALLOWED_ORIGINS?.split(',').map(origin => origin.trim()),
+    allowNoOrigin: process.env.ALLOW_NO_ORIGIN !== 'false',
+  });
   application.start().then(address => {
     console.log(`Server is running on http://localhost:${address.port}`);
   }).catch(error => {

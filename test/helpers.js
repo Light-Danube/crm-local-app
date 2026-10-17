@@ -19,13 +19,25 @@ async function fixture(t, options = {}) {
   });
   const { port } = await application.start(0, '127.0.0.1');
   const base = `http://127.0.0.1:${port}`;
-  async function connect(query = {}) {
-    const socket = io(`${base}/playerControls`, { query, transports: ['websocket'], forceNew: true, reconnection: false });
+  async function connect(auth = {}, extra = {}) {
+    const socket = io(`${base}/playerControls`, { auth, transports: ['websocket'], forceNew: true, reconnection: false, autoConnect: false, ...extra });
     sockets.push(socket);
-    await once(socket, 'connect');
+    await new Promise((resolve, reject) => {
+      socket.once('connect', () => { socket.off('connect_error', reject); resolve(); });
+      socket.once('connect_error', reject);
+      socket.connect();
+    });
     return socket;
   }
-  return { ...application, root, mediaRoot, base, connect };
+  async function createSession() {
+    const response = await fetch(base + '/api/sessions', { method: 'POST' });
+    if (response.status !== 201) throw new Error('Could not create test session');
+    return response.json();
+  }
+  async function connectController(session) {
+    return connect({ role: 'controller', sessionId: session.sessionId, token: session.ownerToken });
+  }
+  return { ...application, root, mediaRoot, base, logDirectory, connect, createSession, connectController };
 }
 
 module.exports = { fixture, once };

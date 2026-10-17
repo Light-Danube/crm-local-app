@@ -3,11 +3,11 @@
 ## Scope and architecture
 
 This is a small video controller/display application, despite the repository name.
-- `server.js`: CommonJS Express HTTP server, disk uploads, YouTube proxy and Socket.IO namespace `/playerControls`.
+- `server.js`: CommonJS Express HTTP server, authenticated disk uploads (`lib/media-service.js`), bounded YouTube proxy (`lib/youtube-route.js`) and Socket.IO namespace `/playerControls`. HTTP/Engine.IO share `lib/origin-policy.js`.
 - `master.html`: controller, local preview, upload and playback controls.
 - `video.html`: paired display/player.
 - `index.html` and `public/`: entry page and static assets.
-- Session ownership lives in an in-memory Map; restarting the server loses pairings. There is no database or build pipeline.
+- Server-issued session identity and hashed owner/display tokens live in `lib/session-store.js`; restarting the server loses sessions. See `docs/contracts/sessions.md` for HTTP and Socket.IO authentication. There is no database or build pipeline.
 
 Keep changes focused and preserve the Ukrainian UI. Prefer small draft PRs; update both ends and tests when changing HTTP or Socket.IO contracts. Do not add a framework or distributed infrastructure without a demonstrated need. See `docs/ROADMAP.md` and `docs/security/REVIEW-2026-10-17.md` for planned work and known defects. Those documents describe the reviewed baseline, not fixes already delivered.
 
@@ -35,7 +35,7 @@ For documentation-only work, check links, source references and `git diff --chec
 
 Minimum application smoke checks after relevant changes:
 1. Start the server, inspect errors and request `/`, `/master.html`, `/video`, `/video.html?video=sample.mp4`, a public asset and `/socket.io/socket.io.js`. Expect nonempty HTTP 200 responses. `/video.html` without its query should return 400; `/select?type=local` should redirect to `/master.html?type=local`.
-2. Upload a disposable media fixture, verify exact downloaded bytes and an HTTP byte-range response, then delete only that fixture.
+2. Create a session, upload a disposable MP4/WebM fixture with the owner Bearer token, verify exact authorized download/range bytes, and confirm anonymous/other-session denial. Tests remove only their temporary runtime files. Legacy `/uploads` and `/videofile` URLs must not serve files.
 3. Connect a controller and display in `/playerControls`; check pairing, play, pause, seeking and volume. For connection changes also check disconnect/reconnect, room isolation and rejected unauthorized events.
 4. Browser-test actual media decoding, autoplay and visible player state when touching the UI. HTTP/Socket.IO checks do not prove browser playback or synchronization quality.
 
@@ -45,7 +45,7 @@ Security reproductions that can terminate a process must use a separate disposab
 
 ## Security boundaries to preserve and improve
 
-Do not treat a client-provided `userID`, room name, filename or MIME type as authorization. Session roles, identity generation, media ownership and payload validation belong on the server. The four-digit pairing code is a convenience, not sufficient authentication for an Internet-facing deployment.
+Do not treat a client-provided `userID`, room name, filename or MIME type as authorization. Session roles, identity generation, media ownership and payload validation belong on the server. The six-digit, expiring, one-use pairing code is a convenience; it does not replace owner authentication or Internet account access controls.
 
 Changes involving uploads must address authentication before writing, server-generated filenames, path containment, bounded size/concurrency, cleanup and active-content serving. Restrict downloads to authorized session media. An Express HTTP CORS policy does not secure WebSocket handshakes; validate allowed origins and authorize Socket.IO events separately. Reject malformed payloads without crashing the process.
 

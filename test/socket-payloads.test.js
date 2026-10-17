@@ -4,16 +4,17 @@ const { fixture, once } = require('./helpers');
 const { validateEvent } = require('../lib/socket-payloads');
 
 test('malformed application packets cannot crash or reach a display', async t => {
-  const { base, connect } = await fixture(t);
-  const master = await connect({ userID: '1234' });
+  const { base, connect, createSession, connectController } = await fixture(t);
+  const session = await createSession();
+  const master = await connectController(session);
   const display = await connect();
   const paired = once(display, 'masterConnected');
-  display.emit('connectToMaster', '1234');
+  display.emit('connectToMaster', session.pairingCode);
   await paired;
   const forwarded = [];
   display.onAny((...args) => forwarded.push(args));
   const cases = [
-    ['video uploaded', [undefined, null, [], 1, 'file', {}, { videoId: null }, { videoId: [] }]],
+    ['video uploaded', [undefined, null, [], 1, 'file', {}, { videoId: null }, { videoId: [] }, { videoId: 'formerly-valid.mp4' }]],
     ['player timeupdate', [null, [], {}, '0', -1, NaN, Infinity]],
     ['player volumeupdate', [null, [], {}, '0.5', -0.1, 1.1, NaN, Infinity]],
     ['video url', [null, [], {}, 1, '', 'javascript:alert(1)', 'file:///tmp/a']],
@@ -37,11 +38,12 @@ test('malformed application packets cannot crash or reach a display', async t =>
 });
 
 test('valid boundary values relay only normalized event fields', async t => {
-  const { connect } = await fixture(t);
-  const master = await connect({ userID: '1234' });
+  const { connect, createSession, connectController } = await fixture(t);
+  const session = await createSession();
+  const master = await connectController(session);
   const display = await connect();
   const paired = once(display, 'masterConnected');
-  display.emit('connectToMaster', '1234');
+  display.emit('connectToMaster', session.pairingCode);
   await paired;
   for (const [event, received, value] of [
     ['player start', 'play', undefined], ['player pause', 'pause', undefined], ['stop', 'stop', undefined],
@@ -56,9 +58,9 @@ test('valid boundary values relay only normalized event fields', async t => {
     if (value === undefined) master.emit(event); else master.emit(event, value);
     assert.deepEqual(await pending, value === undefined ? [] : [value]);
   }
-  const pending = once(display, 'file uploaded');
+  const rejected = once(master, 'error');
   master.emit('video uploaded', { videoId: 'Відео 1.mp4', masterPageID: 'another-room', role: 'controller' });
-  assert.deepEqual(await pending, [{ videoId: 'Відео 1.mp4' }]);
+  assert.match((await rejected)[0], /Invalid payload/);
 });
 
 test('nonfinite numbers and excess arguments are rejected before transport', () => {
@@ -72,10 +74,11 @@ test('nonfinite numbers and excess arguments are rejected before transport', () 
 test('independent servers have isolated pairing state', async t => {
   const first = await fixture(t);
   const second = await fixture(t);
-  await first.connect({ userID: '1234' });
+  const session = await first.createSession();
+  await first.connectController(session);
   const stranger = await second.connect();
-  const error = once(stranger, 'error');
-  stranger.emit('connectToMaster', '1234');
-  assert.match((await error)[0], /No master page/);
+  const error = once(stranger, 'session error');
+  stranger.emit('connectToMaster', session.pairingCode);
+  assert.equal((await error)[0].code, 'INVALID_PAIRING_CODE');
   assert.equal((await fetch(second.base)).status, 200);
 });

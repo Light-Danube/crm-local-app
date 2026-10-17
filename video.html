@@ -87,8 +87,14 @@
         }
       });
 
-      socket.on('masterConnected', (masterID) => {
-        console.log('Connected to master page with ID:', masterID);
+      let mediaAuthorization = Promise.resolve();
+      socket.on('masterConnected', ({ sessionId, displayToken }) => {
+        if (displayToken) sessionStorage.setItem('displaySession', JSON.stringify({ sessionId, displayToken }));
+        const saved = JSON.parse(sessionStorage.getItem('displaySession') || 'null');
+        mediaAuthorization = fetch(`/api/sessions/${sessionId}/media-access`, {
+          method: 'POST', headers: { Authorization: `Bearer ${displayToken || saved?.displayToken}` },
+        }).then(response => { if (!response.ok) throw new Error('Media access denied'); });
+        mediaAuthorization.catch(() => alert('Не вдалося відкрити медіа. Повторіть єднання.'));
         // Disable Enterance puppet elements
         userIDButton.style.display = 'none';
 
@@ -96,6 +102,9 @@
         videoPlayer.style.display = 'block';
       });
     
+      socket.on('session error', () => { alert('Не вдалося приєднати екран. Перевірте код доступу або оновіть його на контролері.'); });
+      socket.on('connect_error', () => { alert('Не вдалося підключитися до сесії. Повторіть єднання.'); });
+
       socket.on('error', (errorMessage) => {
         alert(errorMessage);
       });
@@ -136,12 +145,13 @@
         videoPlayer.volume = volume;
       });
 
-      socket.on("file uploaded", ({ videoId }) => {
-        // Load the uploaded video URL on the puppet page
-        alert("Video was loaded.", videoId)
-        videoPlayer.src = `/uploads/${videoId}`;
-        videoPlayer.currentTime = 0;
-        videoPlayer.pause();
+      socket.on("file uploaded", async ({ url }) => {
+        try {
+          await mediaAuthorization;
+          videoPlayer.src = url;
+          videoPlayer.currentTime = 0;
+          videoPlayer.pause();
+        } catch { /* the authorization failure is shown by the pairing handler */ }
       });
 
       // Обновление текущего времени воспроизведения при перемотке видео
