@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { request } = require('node:http');
-const { writeFile, mkdir, symlink } = require('node:fs/promises');
+const { writeFile, readFile, mkdir, symlink } = require('node:fs/promises');
 const path = require('node:path');
 const { fixture } = require('./helpers');
 const { validateMediaFilename, resolveMediaPath } = require('../lib/media-path');
@@ -57,24 +57,25 @@ test('all public media paths reject traversal and never return an outside sentin
   assert.equal((await get(base, '/')).status, 200);
 });
 
-test('ordinary filenames, internal symlinks, downloads and byte ranges retain exact bytes', async t => {
+test('safe resolver permits ordinary files and internal symlinks while legacy URLs deny public access', async t => {
   const { base, mediaRoot } = await fixture(t);
   const bytes = Buffer.from('disposable media fixture: \u0000\u0001\u0002\u00ff');
   const filename = 'звичайне відео.mp4';
   await writeFile(path.join(mediaRoot, filename), bytes);
   await symlink(path.join(mediaRoot, filename), path.join(mediaRoot, 'inside-link.mp4'));
-  for (const prefix of ['/videofile/', '/uploads/']) {
+  for (const name of [filename, 'inside-link.mp4']) {
+    const resolved = await resolveMediaPath(mediaRoot, name);
+    assert.deepEqual(await readFile(resolved.mediaPath), bytes);
+    assert.equal(resolved.stat.size, bytes.length);
+  }
+  for (const prefix of ['/videofile/', '/uploads/', '/video/']) {
     for (const name of [encodeURIComponent(filename), 'inside-link.mp4']) {
-      const response = await get(base, prefix + name);
-      assert.equal(response.status, 200);
-      assert.deepEqual(response.bytes, bytes);
-      const range = await get(base, prefix + name, { range: 'bytes=0-9' });
-      assert.equal(range.status, 206);
-      assert.equal(range.headers['content-range'], `bytes 0-9/${bytes.length}`);
-      assert.deepEqual(range.bytes, bytes.subarray(0, 10));
-      const head = await fetch(base + prefix + name, { method: 'HEAD' });
-      assert.equal(head.status, 200);
-      assert.equal(Number(head.headers.get('content-length')), bytes.length);
+      for (const headers of [{}, { range: 'bytes=0-9' }]) {
+        const response = await get(base, prefix + name, headers);
+        assert.equal(response.status, 404);
+        assert.ok(!response.bytes.includes(bytes));
+      }
+      assert.equal((await fetch(base + prefix + name, { method: 'HEAD' })).status, 404);
     }
   }
 });

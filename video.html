@@ -87,8 +87,14 @@
         }
       });
 
+      let mediaAuthorization = Promise.resolve();
       socket.on('masterConnected', ({ sessionId, displayToken }) => {
         if (displayToken) sessionStorage.setItem('displaySession', JSON.stringify({ sessionId, displayToken }));
+        const saved = JSON.parse(sessionStorage.getItem('displaySession') || 'null');
+        mediaAuthorization = fetch(`/api/sessions/${sessionId}/media-access`, {
+          method: 'POST', headers: { Authorization: `Bearer ${displayToken || saved?.displayToken}` },
+        }).then(response => { if (!response.ok) throw new Error('Media access denied'); });
+        mediaAuthorization.catch(() => alert('Не вдалося відкрити медіа. Повторіть єднання.'));
         // Disable Enterance puppet elements
         userIDButton.style.display = 'none';
 
@@ -139,12 +145,13 @@
         videoPlayer.volume = volume;
       });
 
-      socket.on("file uploaded", ({ videoId }) => {
-        // Load the uploaded video URL on the puppet page
-        alert("Video was loaded.", videoId)
-        videoPlayer.src = `/uploads/${videoId}`;
-        videoPlayer.currentTime = 0;
-        videoPlayer.pause();
+      socket.on("file uploaded", async ({ url }) => {
+        try {
+          await mediaAuthorization;
+          videoPlayer.src = url;
+          videoPlayer.currentTime = 0;
+          videoPlayer.pause();
+        } catch { /* the authorization failure is shown by the pairing handler */ }
       });
 
       // Обновление текущего времени воспроизведения при перемотке видео

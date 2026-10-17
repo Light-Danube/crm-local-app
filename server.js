@@ -2,7 +2,6 @@ const express = require('express');
 const { createServer } = require('http');
 const fs = require("fs");
 const path = require('path');
-const multer = require('multer');
 const { Server } = require("socket.io");
 const cors = require('cors');
 
@@ -12,6 +11,7 @@ const sanitizeFilename = require('sanitize-filename');
 const { validateEvent } = require('./lib/socket-payloads');
 const { validateMediaFilename, resolveMediaPath } = require('./lib/media-path');
 const { createSessionStore } = require('./lib/session-store');
+const { createMediaService } = require('./lib/media-service');
 
 function createApplication(options = {}) {
 
@@ -49,16 +49,6 @@ app.post('/api/sessions/:sessionId/pairing', (req, res) => {
     sessionHttpError(res, error);
   }
 });
-
-// Настройка папки для загрузки видео файлов
-const storage = multer.diskStorage({
-   destination: mediaRoot,
-   filename: (req, file, cb) => {
-     cb(null, file.originalname);
-   }
- });
-
-const upload = multer({ storage: storage });
 
 // Run before public static middleware, which otherwise normalizes dot segments
 // and can redirect malformed media paths before the media routes see them.
@@ -120,123 +110,48 @@ app.get('/video', (req, res) => {
    res.sendFile(path.join(__dirname, 'video.html'));
 });
 
-// Store video IDs associated with masterPageIDs
-const videoIds = {};
-
-// Handle video requests from puppet page
-app.get("/video/:videoId", async (req, res) => {
-   const { videoId } = req.params;
-   try {
-     validateMediaFilename(videoId);
-     if (!Object.hasOwn(videoIds, videoId)) {
-       return res.status(404).send('Video not found');
-     }
-     const { mediaPath } = await resolveMediaPath(mediaRoot, videoIds[videoId]);
-     sendMediaFile(res, mediaPath);
-   } catch (error) {
-     mediaError(res, error);
-   }
-});
-
+// Legacy public media routes deliberately have no file-serving handlers.
 function mediaError(res, error) {
   if (res.headersSent) return res.destroy();
-  res.status(error.status || error.statusCode || 500).send('Media unavailable');
+  res.status(error.status || 400).send('Media unavailable');
 }
 
-function sendMediaFile(res, mediaPath) {
-  res.sendFile(mediaPath, error => {
-    if (error) mediaError(res, error);
-  });
+function bearer(req) {
+  return /^Bearer ([^\s]+)$/.exec(req.get('authorization') || '')?.[1];
 }
-
-// Serve video files dynamically based on the requested file
-app.get('/videofile/:filename', async (req, res) => {
-   try {
-     const { mediaPath: videoPath, stat } = await resolveMediaPath(mediaRoot, req.params.filename);
-     const fileSize = stat.size;
- 
-     const range = req.headers.range;
- 
-     if (range) {
-       const parts = range.replace(/bytes=/, "").split("-");
-       const start = parseInt(parts[0], 10);
-       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
- 
-       if (start >= fileSize || end >= fileSize || start > end) {
-         throw new Error('Invalid byte range');
-       }
- 
-       const chunksize = (end - start) + 1;
-       const file = fs.createReadStream(videoPath, { start, end });
- 
-       const head = {
-         'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-         'Accept-Ranges': 'bytes',
-         'Content-Length': chunksize,
-         'Content-Type': 'video/mp4',
-         'Content-Disposition': 'attachment' // Optional: Encourage download
-       };
- 
-       res.writeHead(206, head);
-       file.on('error', error => mediaError(res, error)).pipe(res);
-     } else {
-       const head = {
-         'Content-Length': fileSize,
-         'Content-Type': 'video/mp4',
-         'Content-Disposition': 'attachment' // Optional: Encourage download
-       };
- 
-       res.writeHead(200, head);
-       fs.createReadStream(videoPath).on('error', error => mediaError(res, error)).pipe(res);
-     }
-   } catch (error) {
-     mediaError(res, { status: error.status || 400 });
-   }
-});
-
-app.post('/upload', upload.single('video'), (req, res) => {
-   try {
-       const masterId = req.query.userID;
-       console.log("Received file:", req.file);
-       console.log("Emitted event by connection id:", masterId); 
-       if (masterId) {
-           if (req.file) {
-               console.log("Video loaded successfully to server.", req.file.filename);
-               //const videoURL = 'http://crm.ucreate.org.ua/uploads${req.file.filename}';
-               
-               //io.to(masterId).emit("file uploaded", { url: req.file.filename });
-               //res.redirect(`/video.html?video=${req.file.filename}`);
-               //io.to(masterId).emit("file uploaded", { url: videoURL })
-               io.to(masterId).emit("file uploaded", { videoId: req.file.filename });
-               res.redirect(`/video.html?video=${req.file.filename}`);
-           } else {
-               const youtubeUrl = req.body.youtubeUrl;
-               if (youtubeUrl) {
-                   res.redirect(`/video.html?video=${youtubeUrl}`);
-               } else {
-                   res.status(400).send('No file or YouTube URL provided');
-               }
-           }
-       } else {
-           res.status(404).send('Connection ID not found or invalid');
-       }
-   } catch (err) {
-       console.error('Error uploading:', err);
-       res.status(500).send('Error uploading');
+function authenticateMedia(req, ownerOnly = false) {
+  const id = req.params.sessionId || req.query.sessionId;
+  let token = bearer(req);
+  if (!token && !ownerOnly) {
+    token = (req.get('cookie') || '').split(';').map(value => value.trim())
+      .find(value => value.startsWith('mediaAccess='))?.slice('mediaAccess='.length);
   }
-});
+  try { return sessionStore.authenticateOwner(id, token); }
+  catch (error) {
+    if (ownerOnly) throw error;
+    return sessionStore.authenticateDisplay(id, token);
+  }
+}
 
-// Статическая директория для доступа к загруженным видео файлам
-app.use('/uploads', async (req, res, next) => {
-   if (req.method !== 'GET' && req.method !== 'HEAD') return next();
-   try {
-     const filename = decodeURIComponent(req.path.slice(1));
-     const { mediaPath } = await resolveMediaPath(mediaRoot, filename);
-     sendMediaFile(res, mediaPath);
-   } catch (error) {
-     mediaError(res, error instanceof URIError ? { status: 400 } : error);
-   }
+// A path-scoped HttpOnly cookie lets the native video element authenticate requests
+// without placing owner/display tokens in media URLs or exposing cookies to JS.
+app.post('/api/sessions/:sessionId/media-access', (req, res) => {
+  try {
+    if (!bearer(req)) throw Object.assign(new Error(), { code: 'UNAUTHORIZED' });
+    const session = authenticateMedia(req);
+    const secure = options.secureCookies || req.secure ? '; Secure' : '';
+    res.set('Set-Cookie', `mediaAccess=${bearer(req)}; Path=/media/${session.id}/; HttpOnly; SameSite=Strict${secure}`);
+    res.status(204).end();
+  } catch (error) { sessionHttpError(res, error); }
 });
+const mediaService = createMediaService({
+  mediaRoot,
+  limits: options.mediaLimits,
+  authenticate: req => authenticateMedia(req, req.method === 'POST'),
+  notify: (session, media) => io.of('/playerControls').to(session.id).emit('file uploaded', media),
+});
+app.post('/upload', mediaService.upload);
+app.get('/media/:sessionId/:mediaId', mediaService.serve);
 
 // Получение YouTube видео и передача на клиент
 app.get('/youtube/:videoId', async (req, res) => {
@@ -392,7 +307,6 @@ controls.on('connection', socket => {
   socket.on('player timeupdate', time => relay('timeupdate', time));
   socket.on('player volumeupdate', volume => relay('volumeupdate', volume));
   socket.on('video url', url => relay('video url', url));
-  socket.on('video uploaded', ({ videoId }) => relay('file uploaded', { videoId }));
   socket.on('toggle loop', enabled => relay('loop status', enabled));
   socket.on('toggle inversion', enabled => relay('inversion status', enabled));
   socket.on('optimize color', enabled => relay('color optimization status', enabled));
@@ -403,6 +317,7 @@ controls.on('connection', socket => {
 // Explicit lifecycle lets each regression test own its server and runtime files.
 let periodicLogging;
 async function start(port = 3000, host) {
+  await mediaService.ready;
   await new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(port, host, () => {
@@ -422,13 +337,21 @@ async function stop() {
   await new Promise(resolve => logStream.end(resolve));
 }
 
-return { app, server, io, start, stop, sessionStore };
+return { app, server, io, start, stop, sessionStore, mediaService };
 }
 
 module.exports = { createApplication };
 
 if (require.main === module) {
-  const application = createApplication();
+  const mediaLimitNames = {
+    maxFileBytes: 'UPLOAD_MAX_FILE_BYTES', maxConcurrent: 'UPLOAD_MAX_CONCURRENT',
+    maxSessionBytes: 'UPLOAD_MAX_SESSION_BYTES', maxTotalBytes: 'UPLOAD_MAX_TOTAL_BYTES',
+    maxSessionFiles: 'UPLOAD_MAX_SESSION_FILES',
+  };
+  const mediaLimits = Object.fromEntries(Object.entries(mediaLimitNames)
+    .filter(([, name]) => process.env[name] !== undefined)
+    .map(([key, name]) => [key, Number(process.env[name])]));
+  const application = createApplication({ mediaLimits });
   application.start().then(address => {
     console.log(`Server is running on http://localhost:${address.port}`);
   }).catch(error => {
