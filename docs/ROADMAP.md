@@ -16,6 +16,7 @@
 - PR 7a: кілька папетів реалізовано: default 5 незалежних display identities, reconnect/revoke кожного, автоматичний новий pairing-код, актуальні count/slots. Chromium перевірив upload, decode, play/pause на трьох display одночасно.
 - PR 8: canonical playback snapshot/revision, role-token reconnect, видимі connection states, відсутність stale offline commands, явне повторне єднання після restart та autoplay recovery. Спільний YouTube URL parser прибирає розбіжність клієнтів.
 - PR 9: preview URL відкликається при заміні/закритті, cancel без винятку, YouTube preview — прямий stream URL. UI показує фактичні upload limits і помилки; MIME-empty MP4/WebM перевіряються сервером. Chromium: 20 фактичних замін, active URLs≤1; обидва клієнти декодують до завершення fake upstream.
+- PR 9a: YouTube admission відповідає master + 5 display (6 streams/60 requests на хвилину); initial/idle timeout 15 с та окремий hard cap 2 год не обривають активний довгий stream. 17 fake-upstream regressions.
 - PR 10–12: очікують виконання.
 
 ## Послідовність
