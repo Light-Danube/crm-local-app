@@ -92,12 +92,19 @@ app.use((req, res, next) => {
    }
 });
 
-// Serve static files from the "public" directory
-app.use(express.static(path.join(__dirname, 'public')));
+// Unfingerprinted application code revalidates on every visit; visual assets
+// may be reused briefly, then must revalidate. Express retains conditional ETags.
+const shortCachedAssets = new Set(['.css', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.avif']);
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders(res, filename) {
+    res.setHeader('Cache-Control', shortCachedAssets.has(path.extname(filename).toLowerCase())
+      ? 'public, max-age=300, must-revalidate' : 'no-cache');
+  },
+}));
 
 // Redirect users to the /index route when they access the root URL
 app.get('/', (req, res) => {
-   res.sendFile(path.join(__dirname, 'index.html'));
+   res.set('Cache-Control', 'no-cache').sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Handle the selection made by the user and redirect to the appropriate page
@@ -116,7 +123,7 @@ app.get('/select', (req, res) => {
 // Serve the master.html file
 app.get('/master.html', (req, res) => {
    // Send the master.html file
-   res.sendFile(path.join(__dirname, 'master.html'));
+   res.set('Cache-Control', 'no-cache').sendFile(path.join(__dirname, 'master.html'));
 });
 
 
@@ -127,7 +134,7 @@ app.get('/video.html', (req, res) => {
    const videoParam = req.query.video;
    if (videoParam) {
        // If a video parameter is provided, render the video.html file with that parameter
-       res.sendFile(path.join(__dirname, 'video.html'));
+       res.set('Cache-Control', 'no-cache').sendFile(path.join(__dirname, 'video.html'));
    } else {
        // If no video parameter is provided, send a 400 Bad Request response
        res.status(400).send('No video parameter provided');
@@ -136,7 +143,7 @@ app.get('/video.html', (req, res) => {
 
 // Страница для проигрывания видео
 app.get('/video', (req, res) => {
-   res.sendFile(path.join(__dirname, 'video.html'));
+   res.set('Cache-Control', 'no-cache').sendFile(path.join(__dirname, 'video.html'));
 });
 
 // Legacy public media routes deliberately have no file-serving handlers.
