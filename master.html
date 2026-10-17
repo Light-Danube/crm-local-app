@@ -276,6 +276,10 @@
         masterPageID = controllerSession.sessionId;
         ownerToken = controllerSession.ownerToken;
         showPairing(controllerSession);
+        const access = await fetch(`/api/sessions/${masterPageID}/media-access`, {
+          method: 'POST', headers: { Authorization: `Bearer ${ownerToken}` },
+        });
+        if (!access.ok) throw new Error('Не вдалося відкрити доступ до медіа.');
         socket.auth = { role: 'controller', sessionId: masterPageID, token: ownerToken };
         socket.connect();
       }
@@ -389,23 +393,18 @@
         if (!masterPageID || !socket.connected) return alert("Зачекайте на з’єднання із сервером.");
         if (file) {
             const formData = new FormData();
-            // Generate a unique filename
-            const uniqueFilename = generateUniqueFilename(file.name);
-            
-            formData.append("video", file, uniqueFilename);
+            formData.append("video", file);
 
-
-            fetch(`/upload?userID=${masterPageID}`, {
+            fetch(`/upload?sessionId=${masterPageID}`, {
                 method: "POST",
                 headers: { Authorization: `Bearer ${ownerToken}` },
                 body: formData,
             })
             .then((response) => {
                 if (response.ok) {
-                    socket.emit("video uploaded", { videoId: uniqueFilename});
                     console.log("Video uploaded successfully!");
                 } else {
-                    console.error("Failed to upload video.");
+                    alert("Не вдалося завантажити відео. Перевірте формат, розмір і з’єднання.");
                 }
             })
             .catch((error) => {
@@ -416,15 +415,6 @@
         }
       });
     
-      // Function to generate a unique filename
-      function generateUniqueFilename(originalFilename) {
-        const timestamp = new Date().getTime(); // Get current timestamp
-        const randomString = Math.random().toString(36).substring(2, 15); // Generate a random string
-        const fileExtension = originalFilename.split('.').pop(); // Get the file extension
-        return `${timestamp}-${randomString}.${fileExtension}`;
-      }
-    
-
       // Функция для обновления видеоплеера
       function updateVideoPlayer(file) {
         const url = URL.createObjectURL(file);
