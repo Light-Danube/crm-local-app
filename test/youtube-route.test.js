@@ -197,7 +197,7 @@ test('synchronous upstream errors release capacity', async t => {
 });
 
 
-test('the same deadline covers a stalled media stream after metadata completes', async t => {
+test('inactivity deadline closes a stalled media stream after metadata completes', async t => {
   const upstream = fake();
   const base = await fixture(t, upstream.ytdl, { timeoutMs: 60, maxConcurrent: 1 });
   const pending = fetch(base + id);
@@ -211,4 +211,80 @@ test('the same deadline covers a stalled media stream after metadata completes',
   await started(upstream, 2);
   upstream.streams[1].end('released');
   assert.equal(await (await next).text(), 'released');
+});
+
+test('default capacity admits controller and five displays and rejects the seventh stream', async t => {
+  const upstream = fake();
+  const base = await fixture(t, upstream.ytdl);
+  const pending = Array.from({ length: 6 }, () => fetch(base + id));
+  await started(upstream, 6);
+  assert.equal((await fetch(base + id)).status, 503);
+  assert.equal(upstream.calls.length, 6);
+  upstream.streams.forEach((stream, i) => stream.end(String(i)));
+  assert.deepEqual(await Promise.all(pending.map(async request => (await request).text())), ['0', '1', '2', '3', '4', '5']);
+});
+
+test('default per-address rate admits sixty requests and then returns 429', async t => {
+  const base = await fixture(t, () => {
+    const stream = new PassThrough();
+    queueMicrotask(() => stream.end('video'));
+    return stream;
+  }, { now: () => 1000 });
+  for (let i = 0; i < 60; i++) {
+    const response = await fetch(base + id);
+    assert.equal(response.status, 200, `request ${i + 1}`);
+    await response.text();
+  }
+  const limited = await fetch(base + id);
+  assert.equal(limited.status, 429);
+  assert.equal(limited.headers.get('retry-after'), '60');
+});
+
+test('ongoing media chunks keep a stream alive beyond its initial timeout', async t => {
+  const upstream = fake();
+  const base = await fixture(t, upstream.ytdl, { timeoutMs: 150, maxDurationMs: 2000 });
+  const pending = fetch(base + id);
+  await started(upstream);
+  const stream = upstream.streams[0];
+  stream.write('first');
+  const response = await pending;
+  const body = response.text();
+  let chunks = 0;
+  const interval = setInterval(() => { stream.write('next'); chunks++; }, 30);
+  t.after(() => clearInterval(interval));
+  await new Promise(resolve => setTimeout(resolve, 350));
+  clearInterval(interval);
+  assert.equal(stream.destroyed, false);
+  assert.ok(chunks >= 3);
+  stream.end('last');
+  assert.equal(await body, 'first' + 'next'.repeat(chunks) + 'last');
+  assert.equal(upstream.options[0].requestOptions.signal.aborted, true);
+});
+
+test('hard duration deadline bounds a continuously active stream and releases capacity', async t => {
+  const upstream = fake();
+  const base = await fixture(t, upstream.ytdl, { timeoutMs: 150, maxDurationMs: 220, maxConcurrent: 1 });
+  const pending = fetch(base + id);
+  await started(upstream);
+  const stream = upstream.streams[0];
+  stream.write('first');
+  const response = await pending;
+  const body = response.text();
+  const interval = setInterval(() => { if (!stream.destroyed) stream.write('next'); }, 30);
+  t.after(() => clearInterval(interval));
+  await assert.rejects(body);
+  clearInterval(interval);
+  assert.equal(stream.destroyed, true);
+  assert.equal(upstream.options[0].requestOptions.signal.aborted, true);
+  const next = fetch(base + id);
+  await started(upstream, 2);
+  upstream.streams[1].end('released');
+  assert.equal(await (await next).text(), 'released');
+});
+
+test('hard duration validates positive integer values within the Node timer range', () => {
+  for (const maxDurationMs of [0, -1, 1.5, '1000', NaN, Infinity, 2147483648, Number.MAX_SAFE_INTEGER]) {
+    assert.throws(() => createYoutubeHandler({ ytdl() {}, maxDurationMs }), /maxDurationMs/);
+  }
+  assert.equal(typeof createYoutubeHandler({ ytdl() {}, maxDurationMs: 2147483647 }), 'function');
 });
