@@ -59,10 +59,17 @@
     </div>
   
     <div class="input-container">
-      <button id="connectToMasterButton">Connect to Master</button>
+      <button id="connectToMasterButton">Приєднати екран</button>
     </div>
 
+    <div style="position:fixed;top:8px;left:8px;color:white;z-index:10">
+      <p id="connectionStatus" role="status"></p>
+      <button type="button" id="resumePlayback" hidden>Відновити відтворення</button>
+      <button type="button" id="resetSession" hidden>Повторити єднання</button>
+    </div>
     <script src="/socket.io/socket.io.js"></script>
+    <script src="/src/video-url.js"></script>
+    <script src="/src/player-session.js"></script>
     <script>
       const videoPlayer = document.getElementById("videoPlayer");
       const userIDButton = document.getElementById("connectToMasterButton");
@@ -74,7 +81,41 @@
 
       //PUPPET LOAD
       // Connect to the playerControls namespace
-      const socket = io('/playerControls', { transports: ['websocket'] });
+      let displaySession;
+      try { displaySession = JSON.parse(sessionStorage.getItem('displaySession')); } catch {}
+      if (!displaySession || typeof displaySession.sessionId !== 'string' || typeof displaySession.displayToken !== 'string') displaySession = null;
+      const socket = io('/playerControls', { transports: ['websocket'], autoConnect: false });
+      let mediaAuthorization = Promise.resolve();
+      const resetSessionButton = document.getElementById('resetSession');
+      function requirePairing() {
+        resetSessionButton.hidden = false;
+        userIDButton.style.display = 'block';
+      }
+      const playerSession = createPlayerSession({
+        socket, video: videoPlayer,
+        statusElement: document.getElementById('connectionStatus'),
+        resumeButton: document.getElementById('resumePlayback'),
+        getSessionId: () => displaySession?.sessionId,
+        beforeSnapshot: () => mediaAuthorization,
+        onExpired: requirePairing,
+        onSnapshot: snapshot => {
+          optimizeColorChecked = snapshot.effects.color;
+          enhanceDetailsChecked = snapshot.effects.details;
+          backgroundOptChecked = snapshot.effects.background;
+          videoPlayer.style.transform = snapshot.effects.inversion ? 'scaleX(-1)' : 'scaleX(1)';
+          applyFilters();
+        },
+      });
+      resetSessionButton.addEventListener('click', () => {
+        socket.disconnect();
+        sessionStorage.removeItem('displaySession');
+        displaySession = null;
+        socket.auth = {};
+        resetSessionButton.hidden = true;
+        userIDButton.style.display = 'block';
+        socket.connect();
+      });
+
 
       userIDButton.addEventListener('click', () => {
         // Display a prompt to enter the master ID
@@ -87,12 +128,16 @@
         }
       });
 
-      let mediaAuthorization = Promise.resolve();
-      socket.on('masterConnected', ({ sessionId, displayToken }) => {
-        if (displayToken) sessionStorage.setItem('displaySession', JSON.stringify({ sessionId, displayToken }));
-        const saved = JSON.parse(sessionStorage.getItem('displaySession') || 'null');
+      socket.on('masterConnected', ({ sessionId, displayId, displayToken }) => {
+        displaySession = {
+          sessionId, displayId: displayId || displaySession?.displayId,
+          displayToken: displayToken || displaySession?.displayToken,
+        };
+        sessionStorage.setItem('displaySession', JSON.stringify(displaySession));
+        socket.auth = { role: 'display', sessionId, token: displaySession.displayToken };
+        resetSessionButton.hidden = true;
         mediaAuthorization = fetch(`/api/sessions/${sessionId}/media-access`, {
-          method: 'POST', headers: { Authorization: `Bearer ${displayToken || saved?.displayToken}` },
+          method: 'POST', headers: { Authorization: `Bearer ${displaySession.displayToken}` },
         }).then(response => { if (!response.ok) throw new Error('Media access denied'); });
         mediaAuthorization.catch(() => alert('Не вдалося відкрити медіа. Повторіть єднання.'));
         // Disable Enterance puppet elements
@@ -103,7 +148,7 @@
       });
     
       socket.on('session error', () => { alert('Не вдалося приєднати екран. Перевірте код доступу або оновіть його на контролері.'); });
-      socket.on('connect_error', () => { alert('Не вдалося підключитися до сесії. Повторіть єднання.'); });
+      socket.on('session revoked', requirePairing);
 
       socket.on('error', (errorMessage) => {
         alert(errorMessage);
@@ -113,7 +158,7 @@
       // Listen for the emitted video name from the master page     
       socket.on("play", () => {
         //console.log("Received play command from server");
-        videoPlayer.play();
+        void playerSession.play();
       });
 
       socket.on("pause", () => {
@@ -124,11 +169,6 @@
       // Debugging: Log socket connection status
       socket.on("connect", () => {
         console.log("Connected to server");
-      });
-
-      socket.on("disconnect", () => {
-        alert("Disconnected from server.");
-        videoPlayer.src = null
       });
 
       // Update the videoPlayer's currentTime when receiving timeupdate from the server
@@ -177,31 +217,7 @@
       });
 
       // Function to extract video ID from YouTube URL
-      function extractVideoId(url) {
-        // Check for different YouTube URL formats using regular expressions:
-        const patterns = [
-          // Shorts:
-          /^https?:\/\/(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9-_]{11})(?:[\?&].*)?$/,
-          // Playlists:
-          /^https?:\/\/(?:www\.)?youtube\.com\/playlist\?list=([a-zA-Z0-9-_]{24})(?:[\?&].*)?$/,
-          // Mobile watch URL:
-          /^https?:\/\/m\.youtube\.com\/watch\?v=([a-zA-Z0-9-_]{11})(?:[\?&].*)?$/,
-          // Normal watch URL:
-          /^(?:https?:\/\/)?(?:www\.)?youtu(?:be\.com\/watch\?v=)?([a-zA-Z0-9-_]{11})(?:[\?&].*)?$/,
-          // "Share" button link:
-          /^https?:\/\/youtu\.be\/([a-zA-Z0-9-_]{11})\?(?:si=[a-zA-Z0-9]+)?(?:[\?&].*)?$/
-        ];
-      
-        for (const pattern of patterns) {
-          const match = url.match(pattern);
-          if (match) {
-            return match[1]; // Extract video ID from the matched pattern
-          }
-        }
-      
-        // If no match found, return null
-        return null;
-      }
+      function extractVideoId(url) { return videoUrls.extractYouTubeId(url); }
 
       // Event listener for receiving the "stop" command
       socket.on("stop", () => {
@@ -260,6 +276,8 @@
 
           videoPlayer.style.filter = filters || "none";
       }
+      if (displaySession) socket.auth = { role: 'display', sessionId: displaySession.sessionId, token: displaySession.displayToken };
+      socket.connect();
     </script>
   </body>
 </html>

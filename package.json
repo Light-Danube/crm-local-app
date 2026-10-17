@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test --test-timeout=15000 test/*.test.js",
-    "start": "nodemon server.js -e html,js,css"
+    "start": "nodemon server.js -e html,js,css",
+    "test:browser": "node --test --test-timeout=120000 scripts/browser-smoke.cjs"
   },
   "author": "",
   "license": "ISC",
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.14",
+    "playwright-core": "^1.64.1",
     "socket.io-client": "^4.8.4"
   }
 }

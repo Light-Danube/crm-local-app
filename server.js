@@ -13,6 +13,7 @@ const { createSessionStore } = require('./lib/session-store');
 const { createMediaService } = require('./lib/media-service');
 const { createOriginPolicy } = require('./lib/origin-policy');
 const { createYoutubeHandler } = require('./lib/youtube-route');
+const { createPlaybackState } = require('./lib/playback-state');
 
 function createApplication(options = {}) {
 
@@ -30,6 +31,13 @@ io.engine.use((req, res, next) => {
 const mediaRoot = options.mediaRoot || path.join(__dirname, 'uploads');
 
 const sessionStore = createSessionStore(options.sessionOptions);
+function playback(session) {
+  return session.playback ||= createPlaybackState({ now: options.playbackNow || Date.now });
+}
+function emitSnapshot(socket) {
+  const session = socket.data.session;
+  socket.emit('state snapshot', { sessionId: session.id, ...playback(session).snapshot() });
+}
 
 app.use(originPolicy.middleware);
 app.use(cors({ origin: originPolicy.corsOrigin, credentials: true }));
@@ -169,7 +177,10 @@ const mediaService = createMediaService({
   mediaRoot,
   limits: options.mediaLimits,
   authenticate: req => authenticateMedia(req, req.method === 'POST'),
-  notify: (session, media) => io.of('/playerControls').to(session.id).emit('file uploaded', media),
+  notify: (session, media) => {
+    playback(session).media({ kind: 'local', url: media.url, mediaId: media.mediaId });
+    io.of('/playerControls').to(session.id).emit('file uploaded', media);
+  },
 });
 app.post('/upload', mediaService.upload);
 app.get('/media/:sessionId/:mediaId', mediaService.serve);
@@ -250,7 +261,10 @@ controls.on('connection', socket => {
     socket.join(socket.data.session.id);
     socket.emit('masterConnected', { sessionId: socket.data.session.id, displayId: socket.data.display.id });
   }
-  if (socket.data.session) updateDisplayCount(socket.data.session);
+  if (socket.data.session) {
+    updateDisplayCount(socket.data.session);
+    emitSnapshot(socket);
+  }
   void log(`** ${new Date().toLocaleString()} - Socket ${socket.id} connected`);
 
   socket.use(([event, ...args], next) => {
@@ -277,6 +291,7 @@ controls.on('connection', socket => {
       if (socket.data.role === 'display' && socket.data.lastPairingCode === code) {
         sessionStore.touch(previous);
         socket.emit('masterConnected', { sessionId: previous.id, displayId: socket.data.display.id });
+        emitSnapshot(socket);
         updateDisplayCount(previous);
         return;
       }
@@ -300,6 +315,7 @@ controls.on('connection', socket => {
       socket.data.lastPairingCode = code;
       socket.join(session.id);
       socket.emit('masterConnected', { sessionId, displayId, displayToken });
+      emitSnapshot(socket);
       controls.to(session.controllerSocketId).emit('pairing updated', pairing);
       updateDisplayCount(session);
     } catch (error) {
@@ -322,21 +338,26 @@ controls.on('connection', socket => {
   });
 
   // Rooms are selected exclusively from the authenticated server-side session.
-  const relay = (event, value, hasValue = true) => {
+  const relay = (command, event, value, hasValue = true) => {
+    try { playback(socket.data.session).command(command, value); }
+    catch (error) {
+      sessionFailure(socket, error.code || 'INVALID_PAYLOAD', error.message, command);
+      return;
+    }
     const target = socket.to(socket.data.session.id);
     if (hasValue) target.emit(event, value); else target.emit(event);
   };
-  socket.on('player start', () => relay('play', undefined, false));
-  socket.on('player pause', () => relay('pause', undefined, false));
-  socket.on('stop', () => relay('stop', undefined, false));
-  socket.on('player timeupdate', time => relay('timeupdate', time));
-  socket.on('player volumeupdate', volume => relay('volumeupdate', volume));
-  socket.on('video url', url => relay('video url', url));
-  socket.on('toggle loop', enabled => relay('loop status', enabled));
-  socket.on('toggle inversion', enabled => relay('inversion status', enabled));
-  socket.on('optimize color', enabled => relay('color optimization status', enabled));
-  socket.on('toggle enhance details', enabled => relay('enhance details status', enabled));
-  socket.on('toggle back details', enabled => relay('background optimization status', enabled));
+  socket.on('player start', () => relay('player start', 'play', undefined, false));
+  socket.on('player pause', () => relay('player pause', 'pause', undefined, false));
+  socket.on('stop', () => relay('stop', 'stop', undefined, false));
+  socket.on('player timeupdate', time => relay('player timeupdate', 'timeupdate', time));
+  socket.on('player volumeupdate', volume => relay('player volumeupdate', 'volumeupdate', volume));
+  socket.on('video url', url => relay('video url', 'video url', url));
+  socket.on('toggle loop', enabled => relay('toggle loop', 'loop status', enabled));
+  socket.on('toggle inversion', enabled => relay('toggle inversion', 'inversion status', enabled));
+  socket.on('optimize color', enabled => relay('optimize color', 'color optimization status', enabled));
+  socket.on('toggle enhance details', enabled => relay('toggle enhance details', 'enhance details status', enabled));
+  socket.on('toggle back details', enabled => relay('toggle back details', 'background optimization status', enabled));
 });
 
 // Explicit lifecycle lets each regression test own its server and runtime files.
