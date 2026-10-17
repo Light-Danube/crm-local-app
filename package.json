@@ -10,19 +10,15 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.22.1",
+    "cors": "^2.8.6",
+    "express": "^4.22.3",
     "multer": "^2.4.0",
-    "node-fetch": "^3.3.2",
-    "reload": "^3.2.1",
     "sanitize-filename": "^1.6.3",
-    "socket.io": "^4.7.4",
-    "uuid": "^9.0.1",
+    "socket.io": "^4.8.4",
     "ytdl-core": "^4.11.5"
   },
   "devDependencies": {
-    "connect-livereload": "^0.6.1",
-    "livereload": "^0.9.3",
-    "nodemon": "^3.0.3",
+    "nodemon": "^3.1.14",
     "socket.io-client": "^4.8.4"
   }
 }
