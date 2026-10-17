@@ -9,12 +9,14 @@ const cors = require('cors');
 const ytdl = require('ytdl-core');
 const sanitizeFilename = require('sanitize-filename');
 
-const { setTimeout } = require('timers/promises');
+const { validateEvent, validId } = require('./lib/socket-payloads');
+
+function createApplication(options = {}) {
 
 const app = express();
 const server = createServer(app);
 const io = new Server(server);
-const PORT = 3000;
+const mediaRoot = options.mediaRoot || path.join(__dirname, 'uploads');
 
 const userSockets = new Map();
 
@@ -22,7 +24,7 @@ app.use(cors());
 
 // Настройка папки для загрузки видео файлов
 const storage = multer.diskStorage({
-   destination: './uploads/',
+   destination: mediaRoot,
    filename: (req, file, cb) => {
      cb(null, file.originalname);
    }
@@ -85,7 +87,7 @@ app.get("/video/:videoId", (req, res) => {
    const { videoId } = req.params;
    // Check if videoId exists and serve the corresponding video file
    if (videoIds.hasOwnProperty(videoId)) {
-     const videoPath = `./uploads/${videoIds[videoId]}`;
+     const videoPath = path.join(mediaRoot, videoIds[videoId]);
      res.sendFile(videoPath, { root: __dirname });
    } else {
      res.status(404).send("Video not found");
@@ -94,7 +96,7 @@ app.get("/video/:videoId", (req, res) => {
 
 // Serve video files dynamically based on the requested file
 app.get('/videofile/:filename', (req, res) => {
-   const videoPath = path.join(__dirname, 'uploads', req.params.filename);
+   const videoPath = path.join(mediaRoot, req.params.filename);
  
    try {
      const stat = fs.statSync(videoPath);
@@ -173,7 +175,7 @@ app.post('/upload', upload.single('video'), (req, res) => {
 });
 
 // Статическая директория для доступа к загруженным видео файлам
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(mediaRoot));
 
 // Получение YouTube видео и передача на клиент
 app.get('/youtube/:videoId', async (req, res) => {
@@ -207,7 +209,7 @@ app.get('/youtube/:videoId', async (req, res) => {
 
 //LOGGING:
 // Centralized logging configuration
-const logDirectory = path.join(__dirname, 'logs'); // Create a "logs" directory if it doesn't exist
+const logDirectory = options.logDirectory || path.join(__dirname, 'logs'); // Create a "logs" directory if it doesn't exist
 const logFileName = `connections-${new Date().toISOString().slice(0, 10)}.log`;
 const logFilePath = path.join(logDirectory, logFileName);
 
@@ -235,8 +237,17 @@ async function logCurrentConnections() {
 io.of('/playerControls').on('connection', (socket) => {
    console.log('A user connected to playerControls');
 
+   // Validate every application packet before any handler reads or forwards it.
+   socket.use(([event, ...args], next) => {
+      if (!validateEvent(event, args)) {
+         socket.emit('error', `Invalid payload for ${event}`);
+         return;
+      }
+      next();
+   });
+
    // **Crucial fix:** Store the socket's user ID (if provided)
-   if (socket.handshake.query.userID) {
+   if (validId(socket.handshake.query.userID)) {
       userSockets.set(socket.handshake.query.userID, socket);
       socket.connectionSocketID = socket.handshake.query.userID;
    }
@@ -363,19 +374,19 @@ io.of('/playerControls').on('connection', (socket) => {
 
    //VIDEO PARAMETERS:
    //Loop:
-   socket.on("toggle loop", () => {
-      socket.isVideoLoop = !socket.isVideoLoop;
+   socket.on("toggle loop", (enabled) => {
+      socket.isVideoLoop = enabled;
       socket.to(socket.connectionSocketID).emit("loop status", socket.isVideoLoop);
    });
    //Inversion:
-   socket.on("toggle inversion", () => {
-      socket.isVideoInverted = !socket.isVideoInverted;
+   socket.on("toggle inversion", (enabled) => {
+      socket.isVideoInverted = enabled;
       socket.to(socket.connectionSocketID).emit("inversion status", socket.isVideoInverted);
    });
 
    // Handle color optimization button click
-   socket.on("optimize color", () => {
-      socket.isColorOptimized = !socket.isColorOptimized;
+   socket.on("optimize color", (enabled) => {
+      socket.isColorOptimized = enabled;
       socket.to(socket.connectionSocketID).emit("color optimization status", socket.isColorOptimized);
    });
 
@@ -392,42 +403,40 @@ io.of('/playerControls').on('connection', (socket) => {
    });
 });
 
-// Initialize periodic logging
-async function startPeriodicLogging() {
-  await logCurrentConnections(); // Log connections initially
-
-  setInterval(async () => {
-    await logCurrentConnections();
-  }, 60 * 1000); // Log connections every minute
+// Explicit lifecycle lets each regression test own its server and runtime files.
+let periodicLogging;
+async function start(port = 3000, host) {
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, host, () => {
+      server.off('error', reject);
+      resolve();
+    });
+  });
+  await logCurrentConnections();
+  periodicLogging = setInterval(() => { void logCurrentConnections(); }, 60_000);
+  return server.address();
 }
 
-// Start the server
-// Server startup message
-log(`** ${new Date().toLocaleString()} - Server started`);
+async function stop() {
+  clearInterval(periodicLogging);
+  await new Promise(resolve => io.close(resolve));
+  userSockets.clear();
+  await new Promise(resolve => logStream.end(resolve));
+}
 
-server.listen(PORT, () => {
-   console.log(`Server is running on http://localhost:${PORT}`);
-   console.log(`To upload a video, visit http://localhost:${PORT}/index?type=local or http://localhost:${PORT}/index?type=url`);
-});
+return { app, server, io, start, stop };
+}
 
-// Server shutdown handler
-process.on('SIGINT', async () => {
-   console.log('Server shutting down...');
- 
-   // Log server shutdown message
-   await log(`** ${new Date().toLocaleString()} - Server shutting down`);
- 
-   // Disconnect all sockets
-   for (const [socketID, socket] of userSockets.entries()) {
-     io.emit("disconnect")
-   }
- 
-   // Clear userSockets map
-   userSockets.clear();
- 
-   // Exit the process (you may want to perform additional cleanup before exiting)
-   process.exit(0);
-});
+module.exports = { createApplication };
 
-//START PERIODIC LOG:
-startPeriodicLogging();
+if (require.main === module) {
+  const application = createApplication();
+  application.start().then(address => {
+    console.log(`Server is running on http://localhost:${address.port}`);
+  }).catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+  process.once('SIGINT', () => { void application.stop(); });
+}
