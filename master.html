@@ -38,6 +38,9 @@
                 Код: ${masterPageID}
               </p>
               <button type="button" id="refreshPairing">Оновити код доступу</button>
+              <p id="connectionStatus" role="status"></p>
+              <button type="button" id="resumePlayback" hidden>Відновити відтворення</button>
+              <button type="button" id="resetSession" hidden>Створити нову сесію</button>
 
               <!-- Form to upload local videos -->
               <label for="search-name" class="input_label" id="fileInputLabel">
@@ -203,6 +206,8 @@
     </main>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="/src/video-url.js"></script>
+    <script src="/src/player-session.js"></script>
     <script>
       const videoFileInputBox = document.getElementById("fileInputLabel");
       const videoFileInput = document.getElementById("videoFile");
@@ -240,6 +245,38 @@
       const socket = io('/playerControls', { autoConnect: false });
       const connectionCodeElement = document.getElementById('showConnectionID');
       const refreshPairingButton = document.getElementById('refreshPairing');
+      const resetSessionButton = document.getElementById('resetSession');
+      function requireNewSession() {
+        resetSessionButton.hidden = false;
+        document.getElementById('connectionStatus').textContent = 'Сесію завершено. Створіть нову сесію та повторіть єднання екранів.';
+      }
+      const playerSession = createPlayerSession({
+        socket, video: videoPlayer,
+        statusElement: document.getElementById('connectionStatus'),
+        resumeButton: document.getElementById('resumePlayback'),
+        getSessionId: () => masterPageID,
+        onExpired: requireNewSession,
+        onSnapshot: snapshot => {
+          volumeControl.value = snapshot.volume;
+          toggleLoopButton.checked = snapshot.effects.loop;
+          toggleInversionCheckbox.checked = snapshot.effects.inversion;
+          optimizeColorButton.checked = optimizeColorChecked = snapshot.effects.color;
+          enhanceDetailsCheckbox.checked = enhanceDetailsChecked = snapshot.effects.details;
+          optimizeBackgroundCheckbox.checked = backgroundOptimizeChecked = snapshot.effects.background;
+          videoPlayer.style.transform = snapshot.effects.inversion ? 'scaleX(-1)' : 'scaleX(1)';
+          applyFilters();
+        },
+      });
+      resetSessionButton.addEventListener('click', () => {
+        socket.disconnect();
+        sessionStorage.removeItem('controllerSession');
+        controllerSession = undefined;
+        masterPageID = undefined;
+        ownerToken = undefined;
+        resetSessionButton.hidden = true;
+        initializeController().catch(error => { connectionCodeElement.textContent = error.message; });
+      });
+
 
       function showPairing(pairing) {
         if (controllerSession) {
@@ -269,7 +306,8 @@
             method: 'POST', headers: { Authorization: `Bearer ${saved.ownerToken}` },
           });
           if (response.ok) controllerSession = { ...saved, ...await response.json() };
-          else if (response.status !== 401) throw new Error('Сесію тимчасово недоступно. Спробуйте оновити сторінку.');
+          else if (response.status === 401) { requireNewSession(); return; }
+          else throw new Error('Сесію тимчасово недоступно. Спробуйте оновити сторінку.');
         }
         if (!controllerSession) {
           const response = await fetch('/api/sessions', { method: 'POST' });
@@ -346,50 +384,26 @@
 
       // Function to send video URL to puppet page
       function sendVideoUrl(url) {
-        socket.emit("video url", url);
+        playerSession.send("video url", url);
       }
 
       // Function to extract video ID from YouTube URL
-      function extractVideoId(url) {
-        // Check for different YouTube URL formats using regular expressions:
-        const patterns = [
-          // Shorts:
-          /^https?:\/\/(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9-_]{11})(?:[\?&].*)?$/,
-          // Playlists:
-          /^https?:\/\/(?:www\.)?youtube\.com\/playlist\?list=([a-zA-Z0-9-_]{24})(?:[\?&].*)?$/,
-          // Mobile watch URL:
-          /^https?:\/\/m\.youtube\.com\/watch\?v=([a-zA-Z0-9-_]{11})(?:[\?&].*)?$/,
-          // Normal watch URL:
-          /^(?:https?:\/\/)?(?:www\.)?youtu(?:be\.com\/watch\?v=)?([a-zA-Z0-9-_]{11})(?:[\?&].*)?$/,
-          // "Share" button link:
-          /^(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9-_]{11})(?:[\?&].*)?$/
-        ];
-      
-        for (const pattern of patterns) {
-          const match = url.match(pattern);
-          if (match) {
-            return match[1]; // Extract video ID from the matched pattern
-          }
-        }
-      
-        // If no match found, return null
-        return null;
-      }
+      function extractVideoId(url) { return videoUrls.extractYouTubeId(url); }
 
       videoPlayer.addEventListener('play', () => {
-        socket.emit("player start")
+        playerSession.send("player start")
       });
 
       videoPlayer.addEventListener("pause", () =>
-        socket.emit("player pause")
+        playerSession.send("player pause")
       );
 
       videoPlayer.addEventListener("seeking", () =>
-        socket.emit("player timeupdate", videoPlayer.currentTime)
+        playerSession.send("player timeupdate", videoPlayer.currentTime)
       );
 
       volumeControl.addEventListener("input", () =>
-        socket.emit("player volumeupdate", Number(volumeControl.value))
+        playerSession.send("player volumeupdate", Number(volumeControl.value))
       );
 
       uploadButton.addEventListener("click", function () {
@@ -443,7 +457,7 @@
       // Event listener for the STOP button
       stopButton.addEventListener("click", () => {
         // Stop the video playback on both pages
-        socket.emit("stop");
+        playerSession.send("stop");
         videoPlayer.pause();
         videoPlayer.currentTime = 0;
       });
@@ -452,7 +466,7 @@
       //VIDEO PARAMETERS:
       // Loop
       toggleLoopButton.addEventListener('change', () => {
-        socket.emit("toggle loop", toggleLoopButton.checked);
+        playerSession.send("toggle loop", toggleLoopButton.checked);
         if (toggleLoopButton.checked) {
           videoPlayer.loop = true;
         } else {
@@ -464,7 +478,7 @@
       //Toggle inversion checkbox event listener
       toggleInversionCheckbox.addEventListener("change", () => {
         // Emit the inversion status to the server
-        socket.emit("toggle inversion", toggleInversionCheckbox.checked);
+        playerSession.send("toggle inversion", toggleInversionCheckbox.checked);
         // Apply the inversion effect locally on the master page
         if (toggleInversionCheckbox.checked) {
           videoPlayer.style.transform = "scaleX(-1) translateX(1%)";
@@ -475,7 +489,7 @@
 
       // Event listener for the "Optimize Color" checkbox
       optimizeColorButton.addEventListener("change", () => {
-          socket.emit("optimize color", optimizeColorButton.checked);
+          playerSession.send("optimize color", optimizeColorButton.checked);
           // Update the state of the "Optimize Color" checkbox
           optimizeColorChecked = optimizeColorButton.checked;
           // Apply filters based on the state of both checkboxes
@@ -485,14 +499,14 @@
       // Event listener for the "Enhance Details" checkbox
       enhanceDetailsCheckbox.addEventListener("change", () => {
           // Emit the enhance details event to the server along with the checkbox state
-          socket.emit("toggle enhance details", enhanceDetailsCheckbox.checked);
+          playerSession.send("toggle enhance details", enhanceDetailsCheckbox.checked);
           // Apply filters based on the state of both checkboxes
           applyFilters();
       });
 
       optimizeBackgroundCheckbox.addEventListener("change", () => {
         // Emit the enhance details event to the server along with the checkbox state
-        socket.emit("toggle back details", optimizeBackgroundCheckbox.checked);
+        playerSession.send("toggle back details", optimizeBackgroundCheckbox.checked);
         // Apply filters based on the state of both checkboxes
         applyFilters();
       });
@@ -543,11 +557,6 @@
       //LISTENERS:
       socket.on("file uploaded", () => console.log("file uploaded"));
 
-      socket.on("disconnect", () => {
-        alert("Disconnected from server.");
-        videoPlayer.src = null
-      });
-
       socket.on('pairing updated', showPairing);
       socket.on('updatePuppets', ({ count, maxDisplays, displays }) => {
         puppetListElement.replaceChildren();
@@ -579,7 +588,6 @@
       });
 
       socket.on('session error', () => { alert('Дію заборонено. Перевірте сесію та код доступу.'); });
-      socket.on('connect_error', () => { connectionCodeElement.textContent = 'Не вдалося підключитися до сесії. Оновіть сторінку.'; });
 
       socket.on('error', (errorMessage) => {
         alert(errorMessage); // Display error message to the user

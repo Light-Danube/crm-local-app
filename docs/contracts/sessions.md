@@ -37,3 +37,11 @@ Default межі: 100 MiB/file, 2 concurrent uploads, 500 MiB/session, 2 GiB tot
 Default `SESSION_MAX_DISPLAYS=5` (positive integer). Кожен pairing видає окремі `{sessionId,displayId,displayToken}`; жоден display token не замінює інші. Після успіху код автоматично змінюється: controller отримує `pairing updated({pairingCode,expiresAt})`, тож для наступного екрана беріть актуальний код.
 
 `updatePuppets({count,maxDisplays,displays:[{displayId,connected}]})` показує активні екрани й зайняті місця. Disconnect зберігає identity та її місце для reconnect. `DELETE /api/sessions/:sessionId/displays/:displayId` з owner Bearer token видаляє конкретний display, анулює лише його token і звільняє місце; master має видиму кнопку «Видалити». Код повної сесії: `DISPLAY_LIMIT`. Повторний handshake активного identity: `DISPLAY_OCCUPIED`. Ролі та доступ до медіа залишаються ізольованими за сесією. Команда/upload notification надсилається один раз кожному активному display цієї кімнати.
+
+## Відновлення стану (PR 8)
+
+Після authenticated connect, pairing та rejoin сервер надсилає `state snapshot({sessionId,media,time,paused,volume,effects,revision})`. `media` — null або `{kind,url,mediaId?}`; `effects` — `{loop,inversion,color,details,background}`. Сервер збільшує revision при прийнятті команди/медіа; читання snapshot revision не змінює. Поки грає відео, час snapshot враховує elapsed від останньої команди; це модель playback, не доказ показу кадру на екрані.
+
+Обидва клієнти зберігають role credentials у sessionStorage, автоматично повторюють authenticated handshake й оновлюють media cookie. Видимий status показує connecting/connected/reconnecting/disconnected. Зміна з'єднання не очищає src. Команди під час offline/restore відкидаються, Socket.IO buffer очищається; старі snapshots не перекривають нову revision. Після restart credentials недійсні: controller пропонує створити нову сесію, display — повторити єднання. Autoplay-відмова показує кнопку «Відновити відтворення».
+
+`npm run test:browser` потребує Chromium (`CHROMIUM_PATH`, default `/usr/bin/chromium`) і ffmpeg. Скрипт створює власний H.264/AAC fixture й тимчасові сервери, перевіряє декодування, UI, десять reconnect циклів, offline commands, native autoplay recovery та restart. Він не завантажує реальні YouTube-відео.

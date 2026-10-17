@@ -4,7 +4,7 @@
 
 This is a small video controller/display application, despite the repository name.
 - `server.js`: CommonJS Express HTTP server, authenticated disk uploads (`lib/media-service.js`), bounded YouTube proxy (`lib/youtube-route.js`) and Socket.IO namespace `/playerControls`. HTTP/Engine.IO share `lib/origin-policy.js`.
-- `master.html`: controller, local preview, upload and playback controls.
+- `master.html`: controller, local preview, upload and playback controls. Shared recovery/command boundary is `public/src/player-session.js`; canonical state lives in `lib/playback-state.js`.
 - `video.html`: paired display/player. A controller supports multiple independently authenticated displays (default 5 slots, configurable with `SESSION_MAX_DISPLAYS`). Disconnected identities keep their slots until owner revocation.
 - `index.html` and `public/`: entry page and static assets.
 - Server-issued session identity and hashed owner/display tokens live in `lib/session-store.js`; restarting the server loses sessions. See `docs/contracts/sessions.md` for HTTP and Socket.IO authentication. There is no database or build pipeline.
@@ -37,7 +37,7 @@ Minimum application smoke checks after relevant changes:
 1. Start the server, inspect errors and request `/`, `/master.html`, `/video`, `/video.html?video=sample.mp4`, a public asset and `/socket.io/socket.io.js`. Expect nonempty HTTP 200 responses. `/video.html` without its query should return 400; `/select?type=local` should redirect to `/master.html?type=local`.
 2. Create a session, upload a disposable MP4/WebM fixture with the owner Bearer token, verify exact authorized download/range bytes, and confirm anonymous/other-session denial. Tests remove only their temporary runtime files. Legacy `/uploads` and `/videofile` URLs must not serve files.
 3. Connect a controller and display in `/playerControls`; check pairing, play, pause, seeking and volume. For connection changes also check disconnect/reconnect, room isolation and rejected unauthorized events.
-4. Browser-test actual media decoding, autoplay and visible player state when touching the UI. HTTP/Socket.IO checks do not prove browser playback or synchronization quality.
+4. Run `npm run test:browser` after UI/connection changes (requires Chromium via `CHROMIUM_PATH` and ffmpeg). It tests actual decoding, native autoplay recovery, ten reconnect cycles and restart. HTTP/Socket.IO checks do not prove browser playback or real LAN synchronization quality.
 
 Run `npm audit` and `npm audit --omit=dev` for dependency/security work. Preserve exit status and distinguish registry advisories from proven reachable bugs; a production dependency can still be unused at runtime. Do not run `npm audit fix --force` blindly. Keep manifests and lockfile consistent when a dependency change is explicitly in scope.
 
