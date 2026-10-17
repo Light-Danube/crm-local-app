@@ -14,7 +14,7 @@ test('malformed application packets cannot crash or reach a display', async t =>
   const forwarded = [];
   display.onAny((...args) => forwarded.push(args));
   const cases = [
-    ['video uploaded', [undefined, null, [], 1, 'file', {}, { videoId: null }, { videoId: [] }]],
+    ['video uploaded', [undefined, null, [], 1, 'file', {}, { videoId: null }, { videoId: [] }, { videoId: 'formerly-valid.mp4' }]],
     ['player timeupdate', [null, [], {}, '0', -1, NaN, Infinity]],
     ['player volumeupdate', [null, [], {}, '0.5', -0.1, 1.1, NaN, Infinity]],
     ['video url', [null, [], {}, 1, '', 'javascript:alert(1)', 'file:///tmp/a']],
@@ -58,9 +58,9 @@ test('valid boundary values relay only normalized event fields', async t => {
     if (value === undefined) master.emit(event); else master.emit(event, value);
     assert.deepEqual(await pending, value === undefined ? [] : [value]);
   }
-  const pending = once(display, 'file uploaded');
+  const rejected = once(master, 'error');
   master.emit('video uploaded', { videoId: 'Відео 1.mp4', masterPageID: 'another-room', role: 'controller' });
-  assert.deepEqual(await pending, [{ videoId: 'Відео 1.mp4' }]);
+  assert.match((await rejected)[0], /Invalid payload/);
 });
 
 test('nonfinite numbers and excess arguments are rejected before transport', () => {

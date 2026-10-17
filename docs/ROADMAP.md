@@ -9,7 +9,8 @@
 - PR 1: реалізовано в гілці `fix/socket-payload-validation`; `npm test` перевіряє malformed packets, межі значень, ізоляцію серверів і HTTP/upload/range smoke. Формат помилки: подія `error` з рядком `Invalid payload for <event>`. Effects надсилаються boolean, volume — number. S3/S4 ще відкриті; валідація не є авторизацією.
 - PR 2: реалізовано в `fix/media-path-containment`: спільний валідатор і realpath-containment для медіамаршрутів, негативні перевірки traversal/symlink і точності download/range. Авторизація медіа залишається PR 3–4.
 - PR 3: серверні identity/role tokens, TTL та одноразовий pairing, ліміти спроб, заборона duplicate takeover й сторонніх команд; обидва клієнти оновлені. Контракт: [sessions](contracts/sessions.md).
-- PR 4–12: очікують виконання.
+- PR 4: owner auth до upload, серверні media ID, MP4/WebM signatures, size/concurrency/disk/session quotas, cleanup partial/rejected uploads та авторизовані media URL в обох клієнтах. Публічні legacy media routes закрито.
+- PR 5–12: очікують виконання.
 
 ## Послідовність
 

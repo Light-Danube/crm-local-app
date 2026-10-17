@@ -70,7 +70,7 @@ test('anonymous, legacy identity spoof and display commands cannot control eithe
   other.display.on('pause', () => received.push('second'));
   for (const attacker of [stranger, spoof, display, other.display]) {
     await forbidden(attacker, 'player pause');
-    await forbidden(attacker, 'video uploaded', { videoId: 'x.mp4', masterPageID: second.sessionId, role: 'controller' });
+    await forbidden(attacker, 'toggle inversion', true);
   }
   await forbidden(owner, 'connectToMaster', second.pairingCode);
   const seen = once(display, 'timeupdate');
