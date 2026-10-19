@@ -14,6 +14,12 @@ const { createApplication } = require('../server');
 const run = promisify(execFile);
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+async function waitServer(predicate, message) {
+  const deadline = Date.now() + 5000;
+  while (!predicate() && Date.now() < deadline) await wait(20);
+  assert.ok(predicate(), message);
+}
+
 async function ready(page, timeout = 5000) {
   await page.waitForFunction(() => typeof playerSession !== 'undefined' && playerSession.isReady(), null, { timeout });
 }
@@ -86,6 +92,8 @@ test('real media, autoplay recovery, ten network recoveries, offline commands an
   await ready(controller);
   const display = await pairedDisplay(displayContext, app.base, controller);
   watch(display);
+  const sessionId = await controller.evaluate(() => controllerSession.sessionId);
+  const serverState = () => app.sessionStore.sessions.get(sessionId).playback.snapshot();
 
   await controller.locator('#videoFile').setInputFiles(sample);
   await controller.locator('#uploadButton').click();
@@ -154,16 +162,48 @@ test('real media, autoplay recovery, ten network recoveries, offline commands an
   // browser itself must reject audible autoplay and expose the real recovery UI.
   const credentials = await display.evaluate(() => sessionStorage.getItem('displaySession'));
   await displayContext.close();
+  const displayId = JSON.parse(credentials).displayId;
+  await waitServer(() => !app.sessionStore.sessions.get(sessionId).displays.get(displayId).socketId,
+    'closed display releases its server socket before credential reuse');
   await play(controller);
-  const freshContext = await browser.newContext();
+  await waitServer(() => !serverState().paused, 'play is canonical before the fresh display snapshot');
+  // Use a separate Chromium process/profile so earlier controller gestures and
+  // media engagement cannot grant autoplay permission to this display.
+  const freshBrowser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium',
+    headless: true, args: ['--no-sandbox', '--autoplay-policy=document-user-activation-required'] });
+  t.after(() => freshBrowser.close());
+  const freshContext = await freshBrowser.newContext();
   await freshContext.addInitScript(value => sessionStorage.setItem('displaySession', value), credentials);
   const freshDisplay = await freshContext.newPage();
   watch(freshDisplay);
   await freshDisplay.goto(app.base + '/video');
-  await freshDisplay.locator('#resumePlayback').waitFor({ state: 'visible' });
-  assert.match(await freshDisplay.locator('#connectionStatus').textContent(), /Відновити|відновити|дозволити/);
-  assert.equal(await freshDisplay.locator('#videoPlayer').evaluate(video => video.paused), true);
+  // Playwright's regular locator/evaluate polling sets CDP userGesture:true.
+  // Poll through CDP without activation until the native autoplay rejection;
+  // otherwise the assertion itself can silently authorize audible playback.
+  const cdp = await freshContext.newCDPSession(freshDisplay);
+  const observed = await cdp.send('Runtime.evaluate', { userGesture: false, awaitPromise: true, returnByValue: true,
+    expression: `new Promise((resolve, reject) => {
+      const deadline = Date.now() + 10000;
+      function inspect() {
+        const video = document.querySelector('#videoPlayer');
+        const state = { status: document.querySelector('#connectionStatus').textContent,
+          paused: video.paused, muted: video.muted, readyState: video.readyState,
+          activated: navigator.userActivation.hasBeenActive, connected: socket.connected,
+          ready: playerSession.isReady(), mediaError: video.error?.code };
+        if (!document.querySelector('#resumePlayback').hidden && playerSession.isReady()) resolve(state);
+        else if (Date.now() >= deadline) reject(new Error('Native autoplay recovery missing: ' + JSON.stringify(state)));
+        else setTimeout(inspect, 20);
+      }
+      inspect();
+    })` });
+  assert.equal(observed.exceptionDetails, undefined, observed.exceptionDetails?.exception?.description);
+  assert.match(observed.result.value.status, /дозволити відео/);
+  assert.equal(observed.result.value.paused, true);
+  assert.equal(observed.result.value.activated, false, 'autoplay denial is observed without granting user activation');
   await freshDisplay.locator('#resumePlayback').click();
+  const activated = await cdp.send('Runtime.evaluate', { userGesture: false, returnByValue: true,
+    expression: 'navigator.userActivation.hasBeenActive' });
+  assert.equal(activated.result.value, true, 'the visible resume click supplies real user activation');
   await freshDisplay.waitForFunction(() => !document.querySelector('#videoPlayer').paused);
   await pause(controller);
 
