@@ -34,6 +34,11 @@ const sessionStore = createSessionStore(options.sessionOptions);
 function playback(session) {
   return session.playback ||= createPlaybackState({ now: options.playbackNow || Date.now });
 }
+function emitApplied(session, event, snapshot) {
+  let target = io.of('/playerControls').to(session.id);
+  if (session.controllerSocketId) target = target.to(session.controllerSocketId);
+  target.emit('command applied', { event, sessionId: session.id, ...snapshot });
+}
 function emitSnapshot(socket) {
   const session = socket.data.session;
   socket.emit('state snapshot', { sessionId: session.id, ...playback(session).snapshot() });
@@ -185,8 +190,9 @@ const mediaService = createMediaService({
   limits: options.mediaLimits,
   authenticate: req => authenticateMedia(req, req.method === 'POST'),
   notify: (session, media) => {
-    playback(session).media({ kind: 'local', url: media.url, mediaId: media.mediaId });
+    const snapshot = playback(session).media({ kind: 'local', url: media.url, mediaId: media.mediaId });
     io.of('/playerControls').to(session.id).emit('file uploaded', media);
+    emitApplied(session, 'media changed', snapshot);
   },
 });
 app.get('/api/media/config', (req, res) => res.json(mediaService.config));
@@ -276,8 +282,12 @@ controls.on('connection', socket => {
   void log(`** ${new Date().toLocaleString()} - Socket ${socket.id} connected`);
 
   socket.use(([event, ...args], next) => {
+    // Socket.IO appends the acknowledgement callback after application arguments.
+    const ack = typeof args.at(-1) === 'function' ? args.pop() : undefined;
     if (!validateEvent(event, args)) {
-      socket.emit('error', `Invalid payload for ${event}`);
+      const message = `Invalid payload for ${event}`;
+      socket.emit('error', message);
+      ack?.({ ok: false, error: { code: 'INVALID_PAYLOAD', message } });
       return;
     }
     const session = socket.data.session;
@@ -287,7 +297,9 @@ controls.on('connection', socket => {
         (socket.data.role === 'display' && currentSession && session.displays.get(socket.data.display?.id) === socket.data.display && socket.data.display.socketId === socket.id)
       : socket.data.role === 'controller' && currentSession && session.controllerSocketId === socket.id;
     if (!allowed) {
-      sessionFailure(socket, 'FORBIDDEN', 'This role cannot perform this command', event);
+      const message = 'This role cannot perform this command';
+      sessionFailure(socket, 'FORBIDDEN', message, event);
+      ack?.({ ok: false, error: { code: 'FORBIDDEN', message } });
       return;
     }
     next();
@@ -345,27 +357,32 @@ controls.on('connection', socket => {
     void log(`** ${new Date().toLocaleString()} - Socket ${socket.id} disconnected`);
   });
 
-  // Rooms are selected exclusively from the authenticated server-side session.
-  const relay = (command, event, value, hasValue = true) => {
-    try { playback(socket.data.session).command(command, value); }
+  // Rooms and revisions come exclusively from the authenticated server session.
+  const relay = (command, event, value, ack, hasValue = true) => {
+    let snapshot;
+    try { snapshot = playback(socket.data.session).command(command, value); }
     catch (error) {
-      sessionFailure(socket, error.code || 'INVALID_PAYLOAD', error.message, command);
+      const code = error.code || 'INVALID_PAYLOAD';
+      sessionFailure(socket, code, error.message, command);
+      ack?.({ ok: false, error: { code, message: error.message } });
       return;
     }
     const target = socket.to(socket.data.session.id);
     if (hasValue) target.emit(event, value); else target.emit(event);
+    emitApplied(socket.data.session, command, snapshot);
+    ack?.({ ok: true, revision: snapshot.revision });
   };
-  socket.on('player start', () => relay('player start', 'play', undefined, false));
-  socket.on('player pause', () => relay('player pause', 'pause', undefined, false));
-  socket.on('stop', () => relay('stop', 'stop', undefined, false));
-  socket.on('player timeupdate', time => relay('player timeupdate', 'timeupdate', time));
-  socket.on('player volumeupdate', volume => relay('player volumeupdate', 'volumeupdate', volume));
-  socket.on('video url', url => relay('video url', 'video url', url));
-  socket.on('toggle loop', enabled => relay('toggle loop', 'loop status', enabled));
-  socket.on('toggle inversion', enabled => relay('toggle inversion', 'inversion status', enabled));
-  socket.on('optimize color', enabled => relay('optimize color', 'color optimization status', enabled));
-  socket.on('toggle enhance details', enabled => relay('toggle enhance details', 'enhance details status', enabled));
-  socket.on('toggle back details', enabled => relay('toggle back details', 'background optimization status', enabled));
+  socket.on('player start', ack => relay('player start', 'play', undefined, ack, false));
+  socket.on('player pause', ack => relay('player pause', 'pause', undefined, ack, false));
+  socket.on('stop', ack => relay('stop', 'stop', undefined, ack, false));
+  socket.on('player timeupdate', (time, ack) => relay('player timeupdate', 'timeupdate', time, ack));
+  socket.on('player volumeupdate', (volume, ack) => relay('player volumeupdate', 'volumeupdate', volume, ack));
+  socket.on('video url', (url, ack) => relay('video url', 'video url', url, ack));
+  socket.on('toggle loop', (enabled, ack) => relay('toggle loop', 'loop status', enabled, ack));
+  socket.on('toggle inversion', (enabled, ack) => relay('toggle inversion', 'inversion status', enabled, ack));
+  socket.on('optimize color', (enabled, ack) => relay('optimize color', 'color optimization status', enabled, ack));
+  socket.on('toggle enhance details', (enabled, ack) => relay('toggle enhance details', 'enhance details status', enabled, ack));
+  socket.on('toggle back details', (enabled, ack) => relay('toggle back details', 'background optimization status', enabled, ack));
 });
 
 // Explicit lifecycle lets each regression test own its server and runtime files.

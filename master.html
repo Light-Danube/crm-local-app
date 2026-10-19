@@ -34,7 +34,7 @@
               <p class="text_op" ><strong>ПРОЧИТАЙТЕ ІНСТРУКЦІЮ!!!</strong></p>
               <div class="text_op" id="connectedPuppets" aria-live="polite"></div>
               <p class="text_op" id="showConnectionID">
-                Скопіююйте наступний код у вашу /video сторінку, щоб приєднатися до цього контролера.
+                Введіть цей код на кожному екрані /video. Він спільний для екранів до вказаного часу.
                 Код: ${masterPageID}
               </p>
               <button type="button" id="refreshPairing">Оновити код доступу</button>
@@ -201,6 +201,14 @@
             <video id="videoPlayer" controls muted>
               <source type="video/mp4">
             </video>
+            <div id="youtubePlayer" hidden style="width:100%;aspect-ratio:16/9"></div>
+            <div id="youtubeControls" hidden>
+              <button type="button" id="youtubePlay">Відтворити</button>
+              <button type="button" id="youtubePause">Пауза</button>
+              <label for="youtubeSeek">Позиція YouTube</label>
+              <input type="range" id="youtubeSeek" min="0" max="0" step="0.1" value="0">
+              <output id="youtubeTime">0:00 / 0:00</output>
+            </div>
           </div>
         </div>
       </div>
@@ -208,11 +216,15 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="/src/video-url.js"></script>
+    <script src="/src/media-player.js"></script>
     <script src="/src/player-session.js"></script>
     <script>
       const videoFileInputBox = document.getElementById("fileInputLabel");
       const videoFileInput = document.getElementById("videoFile");
-      const videoPlayer = document.getElementById("videoPlayer");
+      const videoPlayer = createMediaPlayer({
+        video: document.getElementById("videoPlayer"),
+        youtubeContainer: document.getElementById("youtubePlayer"),
+      });
       const volumeControl = document.getElementById("volumeControl");
       const uploadButton = document.getElementById("uploadButton");
       const youtubeForm = document.getElementById("youtubeForm");
@@ -243,7 +255,7 @@
       let masterPageID;
       let ownerToken;
       let controllerSession;
-      const socket = io('/playerControls', { autoConnect: false });
+      const socket = io('/playerControls', { autoConnect: false, reconnectionDelayMax: 1000, timeout: 2000 });
       const connectionCodeElement = document.getElementById('showConnectionID');
       const refreshPairingButton = document.getElementById('refreshPairing');
       const resetSessionButton = document.getElementById('resetSession');
@@ -252,7 +264,7 @@
         document.getElementById('connectionStatus').textContent = 'Сесію завершено. Створіть нову сесію та повторіть єднання екранів.';
       }
       const playerSession = createPlayerSession({
-        socket, video: videoPlayer,
+        socket, video: videoPlayer, localPlayback: true,
         statusElement: document.getElementById('connectionStatus'),
         resumeButton: document.getElementById('resumePlayback'),
         getSessionId: () => masterPageID,
@@ -269,6 +281,32 @@
           applyFilters();
         },
       });
+      const youtubeControls = document.getElementById('youtubeControls');
+      const youtubeSeek = document.getElementById('youtubeSeek');
+      const youtubePlay = document.getElementById('youtubePlay');
+      const youtubePause = document.getElementById('youtubePause');
+      youtubePlay.addEventListener('click', () => { void playerSession.play(); });
+      youtubePause.addEventListener('click', () => videoPlayer.pause());
+      youtubeSeek.addEventListener('change', () => {
+        if (!playerSession.isReady()) return;
+        const time = Number(youtubeSeek.value);
+        videoPlayer.currentTime = time;
+        playerSession.send('player timeupdate', time);
+      });
+      function updateYoutubeControls() {
+        youtubeControls.hidden = !videoPlayer.isYouTube;
+        if (!videoPlayer.isYouTube) return;
+        const enabled = playerSession.isReady();
+        youtubePlay.disabled = youtubePause.disabled = youtubeSeek.disabled = !enabled;
+        const duration = Number.isFinite(videoPlayer.duration) ? videoPlayer.duration : 0;
+        youtubeSeek.max = duration;
+        if (document.activeElement !== youtubeSeek) youtubeSeek.value = videoPlayer.currentTime || 0;
+        const format = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+        document.getElementById('youtubeTime').textContent = `${format(videoPlayer.currentTime || 0)} / ${format(duration)}`;
+      }
+      // Display-only sampling; synchronization uses explicit user commands.
+      const youtubeUiTimer = setInterval(updateYoutubeControls, 500);
+      window.addEventListener('pagehide', () => clearInterval(youtubeUiTimer));
       resetSessionButton.addEventListener('click', () => {
         socket.disconnect();
         sessionStorage.removeItem('controllerSession');
@@ -285,7 +323,7 @@
           Object.assign(controllerSession, { pairingCode: pairing.pairingCode, expiresAt: pairing.expiresAt });
           sessionStorage.setItem('controllerSession', JSON.stringify(controllerSession));
         }
-        connectionCodeElement.textContent = `КОД ДОСТУПУ: ${pairing.pairingCode} (до ${new Date(pairing.expiresAt).toLocaleTimeString('uk-UA')})`;
+        connectionCodeElement.textContent = `КОД ДОСТУПУ: ${pairing.pairingCode} (до ${new Date(pairing.expiresAt).toLocaleTimeString('uk-UA')}). Цей код спільний для всіх екранів.`;
       }
 
       async function refreshPairing() {
@@ -394,9 +432,9 @@
         playerSession.send("player pause")
       );
 
-      videoPlayer.addEventListener("seeking", () =>
-        playerSession.send("player timeupdate", videoPlayer.currentTime)
-      );
+      videoPlayer.addEventListener("seeking", () => {
+        if (!videoPlayer.isYouTube) playerSession.send("player timeupdate", videoPlayer.currentTime);
+      });
 
       volumeControl.addEventListener("input", () =>
         playerSession.send("player volumeupdate", Number(volumeControl.value))
@@ -565,7 +603,6 @@
       });
       
       //LISTENERS:
-      socket.on("file uploaded", () => console.log("file uploaded"));
 
       socket.on('pairing updated', showPairing);
       socket.on('updatePuppets', ({ count, maxDisplays, displays }) => {

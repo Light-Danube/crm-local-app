@@ -1,11 +1,11 @@
 # Сесії та ролі
 
-Контракт PR 3. Стан лише в пам'яті процесу; restart анулює credentials. Усі token передавати через TLS поза локальною розробкою. Код доступу — одноразовий дозвіл приєднати один новий display за кожним одноразовим кодом, не owner credential.
+Контракт PR 3. Стан лише в пам'яті процесу; restart анулює credentials. Усі token передавати через TLS поза локальною розробкою. Один код доступу дозволяє приєднати кілька display до завершення його TTL та в межах display slots; це не owner credential.
 
 - `POST /api/sessions` → 201 `{sessionId, ownerToken, pairingCode, expiresAt}`. Identity і 256-bit owner token генерує сервер. Клієнт зберігає owner token у sessionStorage, не в URL.
 - `POST /api/sessions/:sessionId/pairing`, `Authorization: Bearer <ownerToken>` → 200 `{pairingCode, expiresAt}`. Оновлює попередній код. Код має шість цифр і діє п'ять хвилин.
 - Namespace `/playerControls`: handshake `auth: {role: 'controller', sessionId, token: ownerToken}`. Повторне одночасне controller-з'єднання відхиляється, навіть із тим самим token. Відновлення після disconnect потребує правильного token. `query.userID` не дає жодних прав.
-- Display починає без credentials і надсилає `connectToMaster(pairingCode)`. Успіх — `masterConnected({sessionId, displayToken})`; код споживається. Display token дозволяє лише відновлення display: handshake `{role:'display', sessionId, token:displayToken}`. Те саме display identity не можна перехопити; pairing потребує активного controller. Default — до п’яти identities на сесію.
+- Display починає без credentials і надсилає `connectToMaster(pairingCode)`. Успіх — `masterConnected({sessionId, displayToken})`; код залишається чинним до початкового expiresAt. Display token дозволяє лише відновлення display: handshake `{role:'display', sessionId, token:displayToken}`. Те саме display identity не можна перехопити; pairing потребує активного controller. Default — до п’яти identities на сесію.
 - Ліміт pairing: п'ять спроб за хвилину на фактичну адресу socket, спільно для всіх кодів. `X-Forwarded-For` не вважається довіреним. Усі таблиці мають межі; default — 1000 sessions та 10000 IP-лічильників. Це захист локального застосунку, не повна Internet account authentication.
 
 Команди playback, media та effects приймаються лише від controller його власної сесії. Display і неприєднаний socket не можуть надсилати controller commands. Поля `masterPageID`, `userID`, `role` у payload не створюють дозволів і не вибирають кімнату.
@@ -34,7 +34,7 @@ Default межі: 100 MiB/file, 2 concurrent uploads, 500 MiB/session, 2 GiB tot
 
 ## Кілька екранів (PR 7a)
 
-Default `SESSION_MAX_DISPLAYS=5` (positive integer). Кожен pairing видає окремі `{sessionId,displayId,displayToken}`; жоден display token не замінює інші. Після успіху код автоматично змінюється: controller отримує `pairing updated({pairingCode,expiresAt})`, тож для наступного екрана беріть актуальний код.
+Default `SESSION_MAX_DISPLAYS=5` (positive integer). Кожен pairing видає окремі `{sessionId,displayId,displayToken}`; жоден display token не замінює інші. Після успіху controller отримує `pairing updated({pairingCode,expiresAt})` з тим самим кодом та початковим TTL. Для додаткових екранів вводьте той самий код; новий потрібен після expiresAt або явного owner refresh.
 
 `updatePuppets({count,maxDisplays,displays:[{displayId,connected}]})` показує активні екрани й зайняті місця. Disconnect зберігає identity та її місце для reconnect. `DELETE /api/sessions/:sessionId/displays/:displayId` з owner Bearer token видаляє конкретний display, анулює лише його token і звільняє місце; master має видиму кнопку «Видалити». Код повної сесії: `DISPLAY_LIMIT`. Повторний handshake активного identity: `DISPLAY_OCCUPIED`. Ролі та доступ до медіа залишаються ізольованими за сесією. Команда/upload notification надсилається один раз кожному активному display цієї кімнати.
 
@@ -51,4 +51,19 @@ Default `SESSION_MAX_DISPLAYS=5` (positive integer). Кожен pairing вида
 
 `GET /api/media/config` повертає readonly `{maxFileBytes,acceptedMimeTypes}` без credentials. UI показує фактичний ліміт, приймає один MP4/WebM та відображає конкретну серверну причину upload failure. Порожній browser MIME для відомого розширення нормалізується лише в клієнті; перевірка контейнера на сервері лишається обов'язковою.
 
-Локальний object URL відкликається при заміні, переході до stream/snapshot та pagehide; cancel не змінює вже наявне preview. YouTube preview і display використовують прямий `/youtube/:id`, без `response.blob()`. Shared parser приймає watch `v` незалежно від порядку query, shorts і youtu.be, відхиляє playlist-only та чужі hosts. `npm run test:browser` послідовно запускає recovery і media регресії; fake upstream лишається відкритим, доки обидва клієнти вже декодують fixture. Реальну доступність YouTube цей тест не доводить.
+Локальний object URL відкликається при заміні, переході до stream/snapshot та pagehide; cancel не змінює вже наявне preview. YouTube preview і display використовують офіційний IFrame API, без `response.blob()` і серверного extraction. Canonical `media:{kind:"youtube",url:"/youtube/<id>"}` зберігається як ідентифікатор: browser adapter передає ID в `cueVideoById`, а не робить HTTP-запит за цим URL. Shared parser приймає watch `v` незалежно від порядку query, shorts і youtu.be, відхиляє playlist-only та чужі hosts. `npm run test:browser` послідовно запускає recovery і media регресії. Явний IFrame API double декодує локальний fixture через fake upstream і перевіряє play/pause/seek, повідомлення про помилки та повернення до local media. Реальну доступність YouTube цей тест не доводить.
+
+## Підтвердження команд
+
+Playback/media/effects commands можуть передавати необов’язковий Socket.IO acknowledgement callback останнім аргументом. Після прийняття сервер повертає `{ok:true,revision}`; при відмові — `{ok:false,error:{code,message}}`, не змінюючи стан. Revision позначає прийняття сервером, а не показ кадру. Існуючі події та команди без callback зберігають свій формат.
+
+Прийняті команди також надсилають `command applied({event,sessionId,media,time,paused,volume,effects,revision})` власнику та кожному display цієї сесії рівно один раз. Upload використовує `event:'media changed'`. Це canonical snapshot після зміни; legacy relay events збережено для сумісності. Клієнт, що переходить на `command applied`, має припинити застосовувати legacy relay, щоб не виконувати команду двічі.
+
+Обидва браузери застосовують `command applied` замість legacy relay, перевіряючи sessionId та зростання revision. Volume/effects не перезапускають media. Controller зберігає локальне керування timeline без зворотного seek від власної команди; reconnect/media replacement застосовують повний snapshot. Display застосовує play/pause/stop/seek із canonical envelope.
+
+
+## YouTube playback (уточнення 2026-10-19)
+
+Кожен браузер сам завантажує `https://www.youtube.com/iframe_api` і cue-ить лише video ID. Master має окремі кнопки play/pause та seek slider; команди проходять ті самі auth/revision перевірки. Browser adapter передає volume, loop і effects активній поверхні, відкидає callbacks попереднього відео та обмежує очікування API/metadata/play 15 секундами. UI sampling 500 мс оновлює лише позицію повзунка, не створює мережевих seek commands.
+
+Недоступне/приватне відео, заборона embedding (101/150), відсутній Referer (153), API failure та autoplay denial мають видимі повідомлення. Після media failure можна обрати інше відео. Параметри playlist/radio ігноруються, якщо є валідний `v`; локальні MP4/WebM лишаються native video. Legacy server proxy лишено для сумісності, UI його не використовує. Реальне відтворення YouTube не перевірено в cloud environment через мережеву політику; API double не підтверджує доступність конкретного ролика.
