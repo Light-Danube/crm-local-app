@@ -28,8 +28,8 @@ The purpose of this project is to demonstrate a web-based video playback system 
 
 ## Usage
 
-1. **Controller Device:** Use this device to select the video content and initiate playback.
-2. **Display Device:** Use this device to view the video content in full-screen mode.
+1. **Controller Device:** On `/`, choose “Відео з пристрою” or “YouTube”. The controller shows the shared pairing code.
+2. **Display Device:** On the viewing device, open the application and choose “Приєднати екран” in the top navigation, then enter that code. The controller also has “Відкрити екран” for opening another screen in a new tab.
 
 ## Implementation
 
