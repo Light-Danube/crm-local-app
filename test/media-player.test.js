@@ -324,7 +324,7 @@ test('a cued iframe with unknown duration preserves a nonzero reconnect seek', a
   const handlers = {};
   const socket = { connected: true, io: { on() {} }, on(event, handler) { handlers[event] = handler; } };
   const context = { window: {}, URL, location: { href: 'http://localhost/video' },
-    AbortController, DOMException, setTimeout };
+    AbortController, DOMException, setTimeout, performance };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/src/player-session.js'), 'utf8'), context);
   const session = context.window.createPlayerSession({ socket, video: f.facade });
   handlers['state snapshot']({ sessionId: 'session', revision: 1, paused: true, time: 17,
@@ -333,4 +333,26 @@ test('a cued iframe with unknown duration preserves a nonzero reconnect seek', a
   assert.equal(session.isReady(), true);
   assert.equal(f.facade.currentTime, 17);
   assert.equal(iframe.seeks.at(-1), 17);
+});
+
+test('YouTube pause confirms the iframe PAUSED event and pending confirmation is bounded', async t => {
+  const f = fixture(t);
+  const iframe = await youtube(f);
+  iframe.ready();
+  let playing = f.facade.play(); iframe.state(1); await playing;
+  let confirmed = false;
+  const pausing = f.facade.pause().then(value => { confirmed = value; });
+  await turn();
+  assert.equal(confirmed, false);
+  iframe.state(2);
+  await pausing;
+  assert.equal(confirmed, true);
+  playing = f.facade.play(); iframe.state(1); await playing;
+  const interrupted = f.facade.pause();
+  const resumed = f.facade.play();
+  assert.equal(await interrupted, false);
+  iframe.state(1); await resumed;
+  const expired = f.facade.pause();
+  f.expire();
+  assert.equal(await expired, false);
 });
