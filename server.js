@@ -34,6 +34,11 @@ const sessionStore = createSessionStore(options.sessionOptions);
 function playback(session) {
   return session.playback ||= createPlaybackState({ now: options.playbackNow || Date.now });
 }
+function emitApplied(session, event, snapshot) {
+  let target = io.of('/playerControls').to(session.id);
+  if (session.controllerSocketId) target = target.to(session.controllerSocketId);
+  target.emit('command applied', { event, sessionId: session.id, ...snapshot });
+}
 function emitSnapshot(socket) {
   const session = socket.data.session;
   socket.emit('state snapshot', { sessionId: session.id, ...playback(session).snapshot() });
@@ -185,8 +190,9 @@ const mediaService = createMediaService({
   limits: options.mediaLimits,
   authenticate: req => authenticateMedia(req, req.method === 'POST'),
   notify: (session, media) => {
-    playback(session).media({ kind: 'local', url: media.url, mediaId: media.mediaId });
+    const snapshot = playback(session).media({ kind: 'local', url: media.url, mediaId: media.mediaId });
     io.of('/playerControls').to(session.id).emit('file uploaded', media);
+    emitApplied(session, 'media changed', snapshot);
   },
 });
 app.get('/api/media/config', (req, res) => res.json(mediaService.config));
@@ -363,6 +369,7 @@ controls.on('connection', socket => {
     }
     const target = socket.to(socket.data.session.id);
     if (hasValue) target.emit(event, value); else target.emit(event);
+    emitApplied(socket.data.session, command, snapshot);
     ack?.({ ok: true, revision: snapshot.revision });
   };
   socket.on('player start', ack => relay('player start', 'play', undefined, ack, false));
