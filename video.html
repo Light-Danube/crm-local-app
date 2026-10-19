@@ -77,7 +77,6 @@
       let optimizeColorChecked = false;
       let enhanceDetailsChecked = false;
       let backgroundOptChecked = false;
-      let currentTime = 0;
 
       //PUPPET LOAD
       // Connect to the playerControls namespace
@@ -154,110 +153,7 @@
         alert(errorMessage);
       });
 
-      //LISTENERS:
-      // Listen for the emitted video name from the master page     
-      socket.on("play", () => {
-        //console.log("Received play command from server");
-        void playerSession.play();
-      });
-
-      socket.on("pause", () => {
-        //console.log("Received pause command from server");
-        videoPlayer.pause();
-      });
-
-      // Debugging: Log socket connection status
-      socket.on("connect", () => {
-        console.log("Connected to server");
-      });
-
-      // Update the videoPlayer's currentTime when receiving timeupdate from the server
-      socket.on("timeupdate", (time) => {
-        // Устанавливаем новое время воспроизведения только если оно отличается от текущего
-        if (Math.abs(videoPlayer.currentTime - time) > 0.01) {
-          videoPlayer.currentTime = time;
-        }
-      });
-
-    
-
-      socket.on("volumeupdate", (volume) => {
-        videoPlayer.volume = volume;
-      });
-
-      socket.on("file uploaded", async ({ url }) => {
-        try {
-          await mediaAuthorization;
-          videoPlayer.src = url;
-          videoPlayer.currentTime = 0;
-          videoPlayer.pause();
-        } catch { /* the authorization failure is shown by the pairing handler */ }
-      });
-
-      // Обновление текущего времени воспроизведения при перемотке видео
-      videoPlayer.addEventListener("seeking", () => {
-        currentTime = videoPlayer.currentTime;
-      });
-      
-
-      // Обработка нового видео URL от сервера
-      socket.on("video url", (url) => {
-        console.log("Received video URL:", url);
-        const videoId = extractVideoId(url);
-        if (videoId) {
-          // Set video source to YouTube video
-          videoPlayer.src = `/youtube/${videoId}`;
-          // Восстановление времени воспроизведения после загрузки нового видео
-          videoPlayer.onloadedmetadata = () => {
-            videoPlayer.currentTime = currentTime;
-            videoPlayer.onloadedmetadata = null;
-          };
-        } else {
-          alert("Invalid video URL:", url);
-        }
-      });
-
-      // Function to extract video ID from YouTube URL
-      function extractVideoId(url) { return videoUrls.extractYouTubeId(url); }
-
-      // Event listener for receiving the "stop" command
-      socket.on("stop", () => {
-        // Pause the video and reset it to the beginning
-        videoPlayer.pause();
-        videoPlayer.currentTime = 0;
-      });
-
-      //VIDEO PARAMETERS:
-      //Loop:
-      socket.on("loop status", (isVideoLoop, masterPageID) => {
-        if (masterPageID === socket.connectionSocketID) {
-          videoPlayer.loop = isVideoLoop ? true : false;
-        }
-      });
-
-      //Inversion:
-      socket.on("inversion status", (isInverted, masterPageID) => {
-        if (masterPageID === socket.connectionSocketID) {
-          videoPlayer.style.transform = isInverted ? "scaleX(-1) translateX(1%)" : "scaleX(1) translateX(0)";
-        }
-      });
-      
-
-      socket.on("color optimization status", (isColorOptimized, masterPageID) => {
-        optimizeColorChecked = isColorOptimized;
-        applyFilters();
-      });
-
-      socket.on("enhance details status", (isEnhanced) => {
-          enhanceDetailsChecked = isEnhanced;
-          applyFilters();
-      });
-
-      // Socket event listener to handle background optimization status from the server
-      socket.on("background optimization status", (isBack) => {
-        backgroundOptChecked = isBack;
-        applyFilters();
-      });
+      // Revisioned playback/effects and media are handled by playerSession.
 
       function applyFilters() {
           let filters = "";
