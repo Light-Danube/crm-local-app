@@ -84,7 +84,7 @@
       let displaySession;
       try { displaySession = JSON.parse(sessionStorage.getItem('displaySession')); } catch {}
       if (!displaySession || typeof displaySession.sessionId !== 'string' || typeof displaySession.displayToken !== 'string') displaySession = null;
-      const socket = io('/playerControls', { transports: ['websocket'], autoConnect: false });
+      const socket = io('/playerControls', { transports: ['websocket'], autoConnect: false, reconnectionDelayMax: 1000, timeout: 2000 });
       let mediaAuthorization = Promise.resolve();
       const resetSessionButton = document.getElementById('resetSession');
       function requirePairing() {
