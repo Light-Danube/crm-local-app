@@ -1,56 +1,47 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uk">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="./src/components/styles/index.css" />
-    <title>Upload Video Starter</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/src/components/styles/index.css">
+  <link rel="stylesheet" href="/src/components/styles/navigation.css">
+  <title>Відео на ваших екранах</title>
 </head>
-<body>
-    <header>
-        <div class="container container__header">
-          <a href="/">
-            <img
-              src="/src/components/img/image_1.png"
-              alt="img not found"
-              class="logo"
-          /></a>
-          <a
-            href="https://crm.ucreate.org.ua/"
-            class="header__link"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Посилання на сайт
-          </a>
-        </div>
-      </header>
-    <main>
-      <div class="container">
-        <section class="navigation">
-            <!-- Use JavaScript to redirect to master.html with the selected type as a query parameter -->
-            <a href="#" onclick="redirectToMaster('local')">
-                <div class="loupe">
-                    <img class="img__loupe" src="/src/components/img/Loupe.svg" alt="Loupe not found" />
-                </div>
-            </a>
-            <div class="line__main"></div>
-            <!-- Use JavaScript to redirect to master.html with the selected type as a query parameter -->
-            <a href="#" onclick="redirectToMaster('url')">
-                <div class="url">
-                    <img class="img__url" src="/src/components/img/URL.svg" alt="URL not found" />
-                </div>
-            </a>
-        </section>
-    </div>
-    </main>
-
-    <script>
-      // Function to redirect to master.html with the selected type as a query parameter
-      function redirectToMaster(type) {
-          // Redirect to master.html with the selected type as a query parameter
-          window.location.href = `/select?type=${type}`;
-      }
-  </script>
+<body class="start-page">
+  <header class="start-header">
+    <a class="start-brand" href="/" aria-label="На головну">Відео / Екрани</a>
+    <a class="start-header-display" href="/video">Приєднати екран</a>
+  </header>
+  <main class="start-main">
+    <p class="start-eyebrow">Один пульт · кілька екранів</p>
+    <h1>Ваше відео.<br>На потрібних екранах.</h1>
+    <p class="start-intro">Виберіть відео на цьому пристрої. На телевізорі чи іншому пристрої відкрийте сторінку екрана й введіть код із пульта.</p>
+    <section aria-labelledby="controller-heading">
+      <h2 id="controller-heading">Керувати трансляцією</h2>
+      <div class="start-options">
+        <a class="start-card" href="/master.html?type=local">
+          <span class="start-icon" aria-hidden="true">↑</span>
+          <h3>Відео з пристрою</h3>
+          <p>Завантажте файл MP4 або WebM і керуйте відтворенням.</p>
+          <span class="start-action">Вибрати файл <span aria-hidden="true">→</span></span>
+        </a>
+        <a class="start-card" href="/master.html?type=url">
+          <span class="start-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5 L19 12 L8 19 Z"/></svg></span>
+          <h3>YouTube</h3>
+          <p>Вставте посилання на відео та передайте його на екрани.</p>
+          <span class="start-action">Вставити посилання <span aria-hidden="true">→</span></span>
+        </a>
+      </div>
+    </section>
+    <section class="start-display" aria-labelledby="display-heading">
+      <div>
+        <p class="start-eyebrow">На пристрої для перегляду</p>
+        <h2 id="display-heading">Це ваш додатковий екран?</h2>
+        <p>Приєднайте його до пульта за кодом доступу.</p>
+      </div>
+      <a class="start-display-link" href="/video">Приєднати екран <span aria-hidden="true">→</span></a>
+    </section>
+  </main>
+  <footer class="start-footer"><a href="https://crm.ucreate.org.ua/" target="_blank" rel="noreferrer">Сайт Ucreate</a></footer>
 </body>
 </html>

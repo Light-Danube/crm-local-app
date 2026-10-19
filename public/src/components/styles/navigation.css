@@ -1,0 +1,56 @@
+/* Navigation and entry page only; playback controls retain their existing styles. */
+.start-page { background: #f7f8f5; color: #152b36; }
+.start-header, .start-main { width: min(100% - 40px, 1040px); margin-inline: auto; }
+.start-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 28px; }
+.start-header a { color: #3b535c; text-decoration: none; font-size: 14px; }
+.start-header .start-brand { color: #152b36; font-size: 18px; font-weight: 750; }
+.start-header .start-header-display { padding: 9px 12px; border: 1px solid #cbdcd3; border-radius: 8px; color: #176959; font-weight: 650; }
+.start-footer { width: min(100% - 40px, 1040px); margin-inline: auto; padding-bottom: 28px; font-size: 14px; }
+.start-footer a { color: #50616a; text-underline-offset: 3px; }
+.start-main { padding-block: 42px 64px; }
+.start-eyebrow { color: #176959; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.start-main h1 { margin: 18px 0; font-size: clamp(36px, 6vw, 64px); line-height: 1.08; letter-spacing: -.045em; }
+.start-intro { max-width: 610px; margin-bottom: 42px; color: #50616a; font-size: 17px; line-height: 1.65; }
+.start-main h2 { margin: 0 0 18px; font-size: 21px; letter-spacing: -.025em; }
+.start-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.start-card { display: flex; flex-direction: column; align-items: flex-start; padding: 28px; border: 1px solid #dce4de; border-radius: 20px; background: white; color: inherit; text-decoration: none; }
+.start-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: #e7f2ed; color: #176959; font-size: 23px; }
+.start-card h3 { margin: 22px 0 8px; font-size: 23px; letter-spacing: -.025em; }
+.start-card p, .start-display p { margin: 0; color: #50616a; line-height: 1.6; }
+.start-card .start-action { display: flex; justify-content: space-between; gap: 20px; width: 100%; margin-top: 28px; color: #176959; font-weight: 650; }
+.start-display { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-top: 28px; padding: 28px; border-radius: 20px; background: #eaf0eb; }
+.start-display .start-eyebrow { margin-bottom: 10px; color: #176959; }
+.start-display h2 { margin-bottom: 8px; }
+.start-display-link { flex-shrink: 0; padding: 13px 18px; border-radius: 10px; background: #176959; color: white; font-weight: 650; text-decoration: none; }
+.start-page a:focus-visible, .session-navigation a:focus-visible { outline: 3px solid #167bba; outline-offset: 5px; }
+.session-navigation { margin-block: 10px 24px; padding: 16px; border: 1px solid #dce4de; border-radius: 12px; background: #f3f7f4; color: #152b36; }
+.session-navigation-links { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+.session-navigation a { display: inline-flex; align-items: center; gap: 6px; color: #176959; font-weight: 600; text-underline-offset: 3px; }
+.session-navigation p { margin: 12px 0 0; line-height: 1.5; font-size: 14px; }
+.controller-page .video_box { min-width: 0; max-width: 100%; }
+.controller-page .input_search { max-width: 100%; }
+@media (max-width: 600px) {
+  .start-header { align-items: flex-start; padding-block: 22px; }
+  .start-header a { font-size: 12px; }
+  .start-header .start-brand { font-size: 16px; }
+  .start-main { padding-top: 24px; }
+  .start-options { grid-template-columns: 1fr; gap: 16px; }
+  .start-card, .start-display { padding: 22px; }
+  .start-display { align-items: flex-start; flex-direction: column; }
+  .start-intro { font-size: 16px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .start-main { animation: start-arrive 300ms ease-out both; }
+  .start-card, .start-display-link { transition: transform 150ms ease, box-shadow 150ms ease; }
+  .start-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px #152b360d; }
+  .start-display-link:hover { transform: translateY(-2px); }
+  @keyframes start-arrive { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+}
+/* Keep the native file input keyboard-accessible without widening narrow screens. */
+.controller-page .input__file {
+  width: 1px; height: 1px; left: 0; top: 0;
+  visibility: visible; clip-path: inset(50%);
+}
+.controller-page .input__wrapper:focus-within .input__file-button {
+  outline: 3px solid #167bba; outline-offset: 4px;
+}
