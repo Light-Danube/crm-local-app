@@ -134,13 +134,19 @@ test('real media, autoplay recovery, ten network recoveries, offline commands an
     const level = 0.2 + cycle / 100;
     await seek(controller, target);
     await volume(controller, level);
+    // An elapsed server clock can exceed a looping video's duration.
+    const restoredTime = cycle === 0 ? 0.5 : target;
+    if (cycle === 0) {
+      await controller.evaluate(() => { socket.emit('player timeupdate', videoPlayer.duration + 0.5); });
+      await waitServer(() => serverState().time > 60, 'server retains elapsed loop time');
+    }
     await displayContext.setOffline(false);
     await ready(display, 5000);
     await display.waitForFunction(({ target, level, media }) => {
       const v = document.querySelector('#videoPlayer');
       return v.currentSrc === media && v.paused && Math.abs(v.currentTime - target) < 0.3
         && Math.abs(v.volume - level) < 0.001 && v.loop && v.style.filter.includes('hue-rotate');
-    }, { target, level, media }, { timeout: 5000 });
+    }, { target: restoredTime, level, media }, { timeout: 5000 });
     t.diagnostic(`network recovery ${cycle + 1}/10 restored media and latest snapshot within 5 seconds`);
   }
 

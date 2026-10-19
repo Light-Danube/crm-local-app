@@ -90,7 +90,9 @@
           if (!current(job, epoch)) return;
           if (Number.isFinite(snapshot.time) && snapshot.time >= 0) {
             video.currentTime = Number.isFinite(video.duration)
-              ? Math.min(snapshot.time, video.duration) : snapshot.time;
+              ? snapshot.effects?.loop && video.duration > 0
+                ? snapshot.time % video.duration : Math.min(snapshot.time, video.duration)
+              : snapshot.time;
           }
         } else if (video.hasAttribute('src')) {
           video.removeAttribute('src');
