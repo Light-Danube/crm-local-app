@@ -10,11 +10,13 @@ const { promisify } = require('node:util');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { fixture } = require('../test/helpers');
+const { extractYouTubeId } = require('../public/src/video-url');
 const run = promisify(execFile);
 async function ready(page) { await page.waitForFunction(() => playerSession.isReady(), null, { timeout:10000 }); }
 
-test('media UI bounds local URLs, handles file cancellation/errors and buffers YouTube URLs before upstream completion', {timeout:120000}, async t => {
+test('media UI bounds local URLs, handles local files and controls YouTube through an IFrame API double', {timeout:120000}, async t => {
   let bytes, browser;
+  let brokenFails = true;
   const streams=[];
   const app=await fixture({after:cleanup=>t.after(async()=>{
     streams.forEach(stream=>stream.destroy());
@@ -23,7 +25,7 @@ test('media UI bounds local URLs, handles file cancellation/errors and buffers Y
   })}, {mediaLimits:{maxFileBytes:1234567},ytdl:url=>{
     const stream=new PassThrough();streams.push(stream);
     setImmediate(()=>{
-      if(url.includes('brokenERR00')) stream.destroy(new Error('Benign test upstream failure'));
+      if(url.includes('brokenERR00')&&brokenFails) stream.destroy(new Error('Benign test upstream failure'));
       else stream.write(bytes); // Keep HTTP transfer open after all fixture bytes.
     });
     return stream;
@@ -33,6 +35,7 @@ test('media UI bounds local URLs, handles file cancellation/errors and buffers Y
   bytes=await fs.readFile(fixturePath);
   browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox','--autoplay-policy=document-user-activation-required']});
   const context=await browser.newContext();
+  await context.addInitScript({ path: path.join(__dirname, '../test/fake-youtube-api.js') });
   await context.addInitScript(()=>{
     window.liveObjectUrls=new Set();window.objectUrlPeak=0;window.objectUrlsCreated=0;window.objectUrlsRevoked=0;
     const create=URL.createObjectURL.bind(URL),revoke=URL.revokeObjectURL.bind(URL);
@@ -85,33 +88,51 @@ test('media UI bounds local URLs, handles file cancellation/errors and buffers Y
   assert.match((await rejectedDialog).message(),/Video container does not match its type/);
   assert.equal(alerts.length,1);alerts.length=0;
   await master.goto(app.base+'/master.html?type=url');await ready(master);
-  for(const url of ['https://youtu.be/abcdefghijk','https://www.youtube.com/watch?list=example&v=abcdefghijk&t=2']){
+  for(const url of ['https://youtu.be/abcdefghijk','https://www.youtube.com/watch?list=example&v=abcdefghijk&t=2','https://www.youtube.com/watch?v=RoYXgdHafBA&list=RDRoYXgdHafBA&start_radio=1']){
     const oldCount=streams.length;
+    const expectedId=extractYouTubeId(url);
     await master.locator('#youtubeUrlInput').fill(url);await master.locator('#streamButton').click();
-    for(const page of [master,display])await page.waitForFunction(()=>document.querySelector('video').src.endsWith('/youtube/abcdefghijk')&&document.querySelector('video').readyState>=2,null,{timeout:10000});
-    assert.ok(streams.length>=oldCount+2,'both clients request direct streaming URLs');
+    for(const page of [master,display])await page.waitForFunction(id=>videoPlayer.isYouTube&&videoPlayer.src.endsWith('/youtube/'+id)&&videoPlayer.readyState>=1,expectedId,{timeout:10000});
+    await master.waitForFunction(()=>!document.querySelector('#youtubeControls').hidden&&!document.querySelector('#youtubePlay').disabled);
+    await master.locator('#youtubePlay').click();
+    for(const page of [master,display])await page.waitForFunction(()=>!videoPlayer.paused);
+    await master.locator('#youtubePause').click();
+    for(const page of [master,display])await page.waitForFunction(()=>videoPlayer.paused);
+    await master.locator('#youtubeSeek').evaluate(input=>{input.value='2';input.dispatchEvent(new Event('change',{bubbles:true}))});
+    for(const page of [master,display])await page.waitForFunction(()=>Math.abs(videoPlayer.currentTime-2)<0.3);
+    assert.ok(streams.length>=oldCount+2,'both IFrame API doubles decode their local test streams');
     assert.ok(streams.slice(oldCount).every(stream=>!stream.writableEnded),'both decode before upstream ends');
     assert.equal(await master.evaluate(()=>liveObjectUrls.size),0,'YouTube preview allocates no Blob URL');
     for(const stream of streams.slice(oldCount))stream.end();
     // Force a fresh source request for the second supported URL form.
     if(url.includes('youtu.be/')){
-      await Promise.all([master,display].map(page=>page.locator('video').evaluate(video=>{video.removeAttribute('src');video.load()})));
+      await Promise.all([master,display].map(page=>page.evaluate(()=>{videoPlayer.removeAttribute('src');videoPlayer.load()})));
     }
   }
   await master.locator('#youtubeUrlInput').fill('https://youtu.be/brokenERR00');
   await master.locator('#streamButton').click();
   for(const page of [master,display]){
-    await page.waitForFunction(()=>Boolean(document.querySelector('video').error));
-    await page.waitForFunction(()=>document.querySelector('#connectionStatus').textContent.includes('Не вдалося завантажити відео.'));
+    await page.waitForFunction(()=>Boolean(videoPlayer.error));
+    await page.waitForFunction(()=>document.querySelector('#connectionStatus').textContent.includes('YouTube'));
   }
+  // Retrying the same ID must reload both surfaces after an upstream error.
+  brokenFails=false;
+  await master.locator('#streamButton').click();
+  for(const page of [master,display])await page.waitForFunction(()=>videoPlayer.src.endsWith('/youtube/brokenERR00')&&videoPlayer.readyState>=1&&!videoPlayer.error);
   const recoveryStreams=streams.length;
   await master.locator('#youtubeUrlInput').fill('https://youtu.be/abcdefghijk');
   await master.locator('#streamButton').click();
   for(const page of [master,display]){
-    await page.waitForFunction(()=>document.querySelector('video').readyState>=2&&!document.querySelector('video').error);
-    assert.ok(!(await page.locator('#connectionStatus').textContent()).includes('Не вдалося завантажити відео.'));
+    await page.waitForFunction(()=>videoPlayer.readyState>=1&&!videoPlayer.error);
+    assert.ok(!(await page.locator('#connectionStatus').textContent()).includes('YouTube'));
   }
   for(const stream of streams.slice(recoveryStreams))stream.end();
+  await master.goto(app.base+'/master.html?type=local');await ready(master);
+  await master.locator('#videoFile').setInputFiles(fixturePath);
+  await master.locator('#uploadButton').click();
+  for(const page of [master,display])await page.waitForFunction(()=>!videoPlayer.isYouTube&&videoPlayer.readyState>=2);
+  assert.equal(await display.locator('#youtubePlayer').evaluate(node=>node.hidden),true);
+
   assert.deepEqual(errors,[]);assert.deepEqual(alerts,[]);
-  console.log(JSON.stringify({browser:await browser.version(),fixtureBytes:bytes.length,replacements:20,urlCounts,memory:{description:'Chromium performance.memory JS heap estimates, without forced GC; excludes native/Blob retention and is not an RSS measurement',samples:memorySamples},cancelNoPageError:true,emptyMimeUpload:true,invalidContainerVisibleError:true,supportedYoutubeLinks:2,decodesBeforeUpstreamEnds:true,upstreamFailureVisibleBothPlayers:true,subsequentMediaClearsError:true}));
+  console.log(JSON.stringify({browser:await browser.version(),fixtureBytes:bytes.length,replacements:20,urlCounts,memory:{description:'Chromium performance.memory JS heap estimates, without forced GC; excludes native/Blob retention and is not an RSS measurement',samples:memorySamples},cancelNoPageError:true,emptyMimeUpload:true,invalidContainerVisibleError:true,supportedYoutubeLinks:3,userReportedPlaylistLink:true,youtubePlayPauseSeek:true,retrySameYoutubeId:true,switchBackToLocal:true,fakeIframeApi:true,decodesLocalTestMediaBeforeUpstreamEnds:true,upstreamFailureVisibleBothPlayers:true,subsequentMediaClearsError:true}));
 });

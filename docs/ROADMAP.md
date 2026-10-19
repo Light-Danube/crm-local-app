@@ -18,7 +18,8 @@
 - PR 9: preview URL відкликається при заміні/закритті, cancel без винятку, YouTube preview — прямий stream URL. UI показує фактичні upload limits і помилки; MIME-empty MP4/WebM перевіряються сервером. Chromium: 20 фактичних замін, active URLs≤1; обидва клієнти декодують до завершення fake upstream.
 - PR 9a: YouTube admission відповідає master + 5 display (6 streams/60 requests на хвилину); initial/idle timeout 15 с та окремий hard cap 2 год не обривають активний довгий stream. 17 fake-upstream regressions.
 - PR 10: стандартний authenticated sendFile закріплено Range/HEAD/304/416/abort/error tests; HTML/JS revalidate, CSS/images max-age 300 із ETag. Bounded HTTP baseline та paired comparison збережені; надійного прискорення не заявлено.
-- PR 11–12: очікують виконання.
+- PR 11: частково реалізовано в draft PR #26–32: native autoplay observation, bounded reconnect, loop phase, optional acknowledgements та revisioned commands в обох браузерах. Bounded control throttling і публікація drift baseline ще очікують. PR 12 очікує; підготовлені runtime drafts призупинено на прохання користувача.
+- Уточнення 2026-10-19: пріоритет — спільний код для кількох екранів та заміна застарілого YouTube extractor офіційним IFrame playback. Реальне YouTube-відтворення потребує окремої локальної перевірки; cloud policy блокує цей сервіс.
 
 ## Послідовність
 

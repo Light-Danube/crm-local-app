@@ -50,6 +50,14 @@ The web application utilizes a client-server architecture, where one device serv
 5. Start the server using `npm start`.
 6. Access the application through a web browser on both the controller and display devices.
 
+## YouTube playback
+
+Paste a watch, Shorts or youtu.be link on the controller. A link such as `https://www.youtube.com/watch?v=RoYXgdHafBA&list=RDRoYXgdHafBA&start_radio=1` selects that video; radio and playlist parameters do not start a playlist. YouTube plays through its official embedded player on each device. Use the controller's YouTube play/pause buttons, position slider and shared volume/effects controls. Each device needs Internet access; private, unavailable or embedding-disabled videos show a visible error. If autoplay is blocked, click the display's recovery button.
+
+This replaces application playback through the unmaintained `ytdl-core` extractor. Local MP4/WebM files still use native video. YouTube playback and timing follow the embedded player's capabilities; frame synchronization is not guaranteed.
+
+One pairing code connects multiple displays until its displayed expiry (default five minutes, five display slots). Joining does not change or extend the code; the owner can explicitly refresh it.
+
 ## Note
 
 - For optimal performance, ensure both devices have a stable internet connection.
