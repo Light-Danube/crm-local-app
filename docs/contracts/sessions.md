@@ -52,3 +52,7 @@ Default `SESSION_MAX_DISPLAYS=5` (positive integer). Кожен pairing вида
 `GET /api/media/config` повертає readonly `{maxFileBytes,acceptedMimeTypes}` без credentials. UI показує фактичний ліміт, приймає один MP4/WebM та відображає конкретну серверну причину upload failure. Порожній browser MIME для відомого розширення нормалізується лише в клієнті; перевірка контейнера на сервері лишається обов'язковою.
 
 Локальний object URL відкликається при заміні, переході до stream/snapshot та pagehide; cancel не змінює вже наявне preview. YouTube preview і display використовують прямий `/youtube/:id`, без `response.blob()`. Shared parser приймає watch `v` незалежно від порядку query, shorts і youtu.be, відхиляє playlist-only та чужі hosts. `npm run test:browser` послідовно запускає recovery і media регресії; fake upstream лишається відкритим, доки обидва клієнти вже декодують fixture. Реальну доступність YouTube цей тест не доводить.
+
+## Підтвердження команд
+
+Playback/media/effects commands можуть передавати необов’язковий Socket.IO acknowledgement callback останнім аргументом. Після прийняття сервер повертає `{ok:true,revision}`; при відмові — `{ok:false,error:{code,message}}`, не змінюючи стан. Revision позначає прийняття сервером, а не показ кадру. Існуючі події та команди без callback зберігають свій формат.
