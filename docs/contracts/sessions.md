@@ -1,11 +1,11 @@
 # Сесії та ролі
 
-Контракт PR 3. Стан лише в пам'яті процесу; restart анулює credentials. Усі token передавати через TLS поза локальною розробкою. Код доступу — одноразовий дозвіл приєднати один новий display за кожним одноразовим кодом, не owner credential.
+Контракт PR 3. Стан лише в пам'яті процесу; restart анулює credentials. Усі token передавати через TLS поза локальною розробкою. Один код доступу дозволяє приєднати кілька display до завершення його TTL та в межах display slots; це не owner credential.
 
 - `POST /api/sessions` → 201 `{sessionId, ownerToken, pairingCode, expiresAt}`. Identity і 256-bit owner token генерує сервер. Клієнт зберігає owner token у sessionStorage, не в URL.
 - `POST /api/sessions/:sessionId/pairing`, `Authorization: Bearer <ownerToken>` → 200 `{pairingCode, expiresAt}`. Оновлює попередній код. Код має шість цифр і діє п'ять хвилин.
 - Namespace `/playerControls`: handshake `auth: {role: 'controller', sessionId, token: ownerToken}`. Повторне одночасне controller-з'єднання відхиляється, навіть із тим самим token. Відновлення після disconnect потребує правильного token. `query.userID` не дає жодних прав.
-- Display починає без credentials і надсилає `connectToMaster(pairingCode)`. Успіх — `masterConnected({sessionId, displayToken})`; код споживається. Display token дозволяє лише відновлення display: handshake `{role:'display', sessionId, token:displayToken}`. Те саме display identity не можна перехопити; pairing потребує активного controller. Default — до п’яти identities на сесію.
+- Display починає без credentials і надсилає `connectToMaster(pairingCode)`. Успіх — `masterConnected({sessionId, displayToken})`; код залишається чинним до початкового expiresAt. Display token дозволяє лише відновлення display: handshake `{role:'display', sessionId, token:displayToken}`. Те саме display identity не можна перехопити; pairing потребує активного controller. Default — до п’яти identities на сесію.
 - Ліміт pairing: п'ять спроб за хвилину на фактичну адресу socket, спільно для всіх кодів. `X-Forwarded-For` не вважається довіреним. Усі таблиці мають межі; default — 1000 sessions та 10000 IP-лічильників. Це захист локального застосунку, не повна Internet account authentication.
 
 Команди playback, media та effects приймаються лише від controller його власної сесії. Display і неприєднаний socket не можуть надсилати controller commands. Поля `masterPageID`, `userID`, `role` у payload не створюють дозволів і не вибирають кімнату.
@@ -34,7 +34,7 @@ Default межі: 100 MiB/file, 2 concurrent uploads, 500 MiB/session, 2 GiB tot
 
 ## Кілька екранів (PR 7a)
 
-Default `SESSION_MAX_DISPLAYS=5` (positive integer). Кожен pairing видає окремі `{sessionId,displayId,displayToken}`; жоден display token не замінює інші. Після успіху код автоматично змінюється: controller отримує `pairing updated({pairingCode,expiresAt})`, тож для наступного екрана беріть актуальний код.
+Default `SESSION_MAX_DISPLAYS=5` (positive integer). Кожен pairing видає окремі `{sessionId,displayId,displayToken}`; жоден display token не замінює інші. Після успіху controller отримує `pairing updated({pairingCode,expiresAt})` з тим самим кодом та початковим TTL. Для додаткових екранів вводьте той самий код; новий потрібен після expiresAt або явного owner refresh.
 
 `updatePuppets({count,maxDisplays,displays:[{displayId,connected}]})` показує активні екрани й зайняті місця. Disconnect зберігає identity та її місце для reconnect. `DELETE /api/sessions/:sessionId/displays/:displayId` з owner Bearer token видаляє конкретний display, анулює лише його token і звільняє місце; master має видиму кнопку «Видалити». Код повної сесії: `DISPLAY_LIMIT`. Повторний handshake активного identity: `DISPLAY_OCCUPIED`. Ролі та доступ до медіа залишаються ізольованими за сесією. Команда/upload notification надсилається один раз кожному активному display цієї кімнати.
 

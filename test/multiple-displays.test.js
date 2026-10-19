@@ -27,7 +27,7 @@ const revoke = (f, session, id, token) => fetch(`${f.base}/api/sessions/${sessio
   method: 'DELETE', headers: token ? bearer(token) : {},
 });
 
-test('three independently authenticated displays receive commands and uploads exactly once within their room', async t => {
+test('three displays use the same code and receive commands and uploads exactly once within their room', async t => {
   const f = await fixture(t);
   const session = await f.createSession();
   const owner = await f.connectController(session);
@@ -35,15 +35,15 @@ test('three independently authenticated displays receive commands and uploads ex
   const otherOwner = await f.connectController(other);
   const outsider = await pair(f, otherOwner, other.pairingCode);
   const displays = [];
-  let code = session.pairingCode;
+  const code = session.pairingCode;
   for (let index = 0; index < 3; index++) {
     const paired = await pair(f, owner, code);
     displays.push(paired);
     assert.equal(paired.state.count, index + 1);
     assert.equal(paired.state.maxDisplays, 5);
     assert.equal(paired.state.displays.length, index + 1);
-    assert.notEqual(paired.pairing.pairingCode, code);
-    code = paired.pairing.pairingCode;
+    assert.equal(paired.pairing.pairingCode, code);
+    assert.equal(paired.pairing.expiresAt, session.expiresAt);
     assert.equal(f.sessionStore.authenticateDisplayIdentity(session.sessionId, paired.credentials.displayToken).display.id, paired.credentials.displayId);
     await assert.rejects(f.connect(auth(session, paired.credentials)), error => error.data.code === 'DISPLAY_OCCUPIED');
   }
@@ -136,7 +136,8 @@ test('pairing again in the same session rotates only that display token without 
   const session = await f.createSession();
   const owner = await f.connectController(session);
   const first = await pair(f, owner, session.pairingCode);
-  const repaired = await pair(f, owner, first.pairing.pairingCode, first.display);
+  const freshCode = f.sessionStore.rotatePairing(f.sessionStore.sessions.get(session.sessionId)).pairingCode;
+  const repaired = await pair(f, owner, freshCode, first.display);
   assert.equal(repaired.credentials.displayId, first.credentials.displayId);
   assert.notEqual(repaired.credentials.displayToken, first.credentials.displayToken);
   assert.equal(repaired.state.count, 1);

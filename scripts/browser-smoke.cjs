@@ -56,10 +56,6 @@ async function pause(page) {
 }
 
 async function pairedDisplay(context, base, controller) {
-  await Promise.all([
-    controller.waitForResponse(response => response.url().includes('/pairing') && response.request().method() === 'POST' && response.ok()),
-    controller.locator('#refreshPairing').click(),
-  ]);
   const code = await controller.locator('#showConnectionID').textContent();
   const pairingCode = code.match(/\b\d{6}\b/)?.[0];
   assert.ok(pairingCode, 'controller visibly supplies a pairing code');
@@ -92,6 +88,13 @@ test('real media, autoplay recovery, ten network recoveries, offline commands an
   await ready(controller);
   const display = await pairedDisplay(displayContext, app.base, controller);
   watch(display);
+  const extraContexts = [await browser.newContext(), await browser.newContext()];
+  const siblings = [];
+  for (const context of extraContexts) {
+    const sibling = await pairedDisplay(context, app.base, controller);
+    watch(sibling);
+    siblings.push(sibling);
+  }
   const sessionId = await controller.evaluate(() => controllerSession.sessionId);
   const serverState = () => app.sessionStore.sessions.get(sessionId).playback.snapshot();
 
@@ -104,12 +107,19 @@ test('real media, autoplay recovery, ten network recoveries, offline commands an
   await ready(controller);
   await ready(display);
   await play(controller);
-  await display.waitForFunction(() => !document.querySelector('#videoPlayer').paused);
+  for (const page of [display, ...siblings]) {
+    await ready(page);
+    await page.waitForFunction(() => {
+      const v = document.querySelector('#videoPlayer');
+      return !v.paused && v.getVideoPlaybackQuality().totalVideoFrames > 0;
+    });
+  }
   const before = await display.locator('#videoPlayer').evaluate(video => video.currentTime);
   await display.waitForFunction(time => document.querySelector('#videoPlayer').currentTime > time + 0.2, before);
   assert.ok(await display.locator('#videoPlayer').evaluate(video => video.getVideoPlaybackQuality().totalVideoFrames > 0), 'browser decodes real video frames');
   await pause(controller);
-  await display.waitForFunction(() => document.querySelector('#videoPlayer').paused);
+  for (const page of [display, ...siblings]) await page.waitForFunction(() => document.querySelector('#videoPlayer').paused);
+  for (const context of extraContexts) await context.close();
   await seek(controller, 7);
   await volume(controller, 0.42);
   await effect(controller, '#toggleLoopButton', true);

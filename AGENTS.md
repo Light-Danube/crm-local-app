@@ -45,7 +45,7 @@ Security reproductions that can terminate a process must use a separate disposab
 
 ## Security boundaries to preserve and improve
 
-Do not treat a client-provided `userID`, room name, filename or MIME type as authorization. Session roles, identity generation, media ownership and payload validation belong on the server. The six-digit, expiring, one-use pairing code is a convenience; it does not replace owner authentication or Internet account access controls.
+Do not treat a client-provided `userID`, room name, filename or MIME type as authorization. Session roles, identity generation, media ownership and payload validation belong on the server. The six-digit, expiring pairing code (reusable within its TTL and display-slot limit) is a convenience; it does not replace owner authentication or Internet account access controls.
 
 Changes involving uploads must address authentication before writing, server-generated filenames, path containment, bounded size/concurrency, cleanup and active-content serving. Restrict downloads to authorized session media. An Express HTTP CORS policy does not secure WebSocket handshakes; validate allowed origins and authorize Socket.IO events separately. Reject malformed payloads without crashing the process.
 
