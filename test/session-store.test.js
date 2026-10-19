@@ -53,7 +53,7 @@ test('pairing expires exactly at TTL without expiring owner authentication', () 
   assert.equal(store.authenticateOwner(two.sessionId, two.ownerToken), two.session);
 });
 
-test('successful pair consumes its code; rotation invalidates old code and grants a fresh TTL', () => {
+test('one code admits independent displays until original TTL; owner rotation invalidates it', () => {
   const { store, advance } = clocked({ pairingTtlMs: 100 });
   const created = store.create();
   const old = created.pairingCode;
@@ -64,7 +64,11 @@ test('successful pair consumes its code; rotation invalidates old code and grant
   fails(() => store.pair(old, 'ip-one'), 'INVALID_PAIRING_CODE');
   advance(99);
   const paired = store.pair(rotated.pairingCode, 'ip-one');
-  fails(() => store.pair(rotated.pairingCode, 'ip-one'), 'INVALID_PAIRING_CODE');
+  const sibling = store.pair(rotated.pairingCode, 'ip-two');
+  assert.notEqual(sibling.displayToken, paired.displayToken);
+  assert.equal(sibling.pairing.expiresAt, rotated.expiresAt);
+  advance(1);
+  fails(() => store.pair(rotated.pairingCode, 'ip-three'), 'INVALID_PAIRING_CODE');
   const next = store.rotatePairing(created.session);
   const replaced = store.pair(next.pairingCode, 'ip-two');
   assert.equal(store.authenticateDisplay(created.sessionId, paired.displayToken), created.session);

@@ -34,7 +34,7 @@
               <p class="text_op" ><strong>ПРОЧИТАЙТЕ ІНСТРУКЦІЮ!!!</strong></p>
               <div class="text_op" id="connectedPuppets" aria-live="polite"></div>
               <p class="text_op" id="showConnectionID">
-                Скопіююйте наступний код у вашу /video сторінку, щоб приєднатися до цього контролера.
+                Введіть цей код на кожному екрані /video. Він спільний для екранів до вказаного часу.
                 Код: ${masterPageID}
               </p>
               <button type="button" id="refreshPairing">Оновити код доступу</button>
@@ -285,7 +285,7 @@
           Object.assign(controllerSession, { pairingCode: pairing.pairingCode, expiresAt: pairing.expiresAt });
           sessionStorage.setItem('controllerSession', JSON.stringify(controllerSession));
         }
-        connectionCodeElement.textContent = `КОД ДОСТУПУ: ${pairing.pairingCode} (до ${new Date(pairing.expiresAt).toLocaleTimeString('uk-UA')})`;
+        connectionCodeElement.textContent = `КОД ДОСТУПУ: ${pairing.pairingCode} (до ${new Date(pairing.expiresAt).toLocaleTimeString('uk-UA')}). Цей код спільний для всіх екранів.`;
       }
 
       async function refreshPairing() {
