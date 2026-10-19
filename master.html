@@ -252,7 +252,7 @@
         document.getElementById('connectionStatus').textContent = 'Сесію завершено. Створіть нову сесію та повторіть єднання екранів.';
       }
       const playerSession = createPlayerSession({
-        socket, video: videoPlayer,
+        socket, video: videoPlayer, localPlayback: true,
         statusElement: document.getElementById('connectionStatus'),
         resumeButton: document.getElementById('resumePlayback'),
         getSessionId: () => masterPageID,
@@ -565,7 +565,6 @@
       });
       
       //LISTENERS:
-      socket.on("file uploaded", () => console.log("file uploaded"));
 
       socket.on('pairing updated', showPairing);
       socket.on('updatePuppets', ({ count, maxDisplays, displays }) => {

@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   window.createPlayerSession = function createPlayerSession({
-    socket, video, statusElement, resumeButton, getSessionId,
+    socket, video, statusElement, resumeButton, getSessionId, localPlayback = false,
     beforeSnapshot = () => Promise.resolve(), onSnapshot = () => {}, onExpired = () => {},
   }) {
     let ready = false;
@@ -12,6 +12,7 @@
     let restore;
     let generation = 0;
     let connectedOnce = false;
+    let commandGeneration = 0;
     const setStatus = text => { if (statusElement) statusElement.textContent = text; };
     const setResume = visible => { if (resumeButton) resumeButton.hidden = !visible; };
     let mediaFailed = false;
@@ -64,6 +65,12 @@
         if (signal.aborted) aborted();
       });
     }
+    function mediaTime(snapshot) {
+      const time = Math.max(0, snapshot.time);
+      if (!Number.isFinite(video.duration)) return time;
+      return snapshot.effects?.loop && video.duration > 0
+        ? time % video.duration : Math.min(time, video.duration);
+    }
     async function applySnapshot(snapshot) {
       if (!snapshot || typeof snapshot !== 'object' || !Number.isInteger(snapshot.revision)) return;
       const expected = getSessionId?.();
@@ -89,10 +96,7 @@
           await metadata(job.signal);
           if (!current(job, epoch)) return;
           if (Number.isFinite(snapshot.time) && snapshot.time >= 0) {
-            video.currentTime = Number.isFinite(video.duration)
-              ? snapshot.effects?.loop && video.duration > 0
-                ? snapshot.time % video.duration : Math.min(snapshot.time, video.duration)
-              : snapshot.time;
+            video.currentTime = mediaTime(snapshot);
           }
         } else if (video.hasAttribute('src')) {
           video.removeAttribute('src');
@@ -112,12 +116,51 @@
         if (resumeButton?.hidden !== false) setStatus('Підключено');
       } catch (error) {
         if (error?.name !== 'AbortError' && current(job, epoch)) {
+          // A failed resource must not block choosing another media source.
+          if (video.error) ready = true;
           setStatus(error.message || 'Не вдалося відновити стан. Повторіть підключення.');
         }
       } finally {
         if (restore === job) { applying = false; restore = undefined; }
       }
     }
+    async function applyCommand(snapshot) {
+      if (!snapshot || !Number.isInteger(snapshot.revision) || snapshot.revision < 0) return;
+      const expected = getSessionId?.();
+      if (expected && snapshot.sessionId !== expected) return;
+      if (snapshot.sessionId === restoredSession && snapshot.revision <= revision) return;
+      if (!ready || snapshot.sessionId !== restoredSession ||
+          ['video url', 'media changed'].includes(snapshot.event)) {
+        await applySnapshot(snapshot);
+        return;
+      }
+      revision = snapshot.revision;
+      const epoch = generation;
+      const timeline = !localPlayback && ['player start', 'player pause', 'stop', 'player timeupdate'].includes(snapshot.event);
+      const command = timeline ? ++commandGeneration : commandGeneration;
+      if (timeline) applying = true;
+      try {
+        if (timeline && snapshot.event === 'player start') await attemptPlay(() => generation === epoch && commandGeneration === command && socket.connected);
+        else if (timeline && snapshot.event === 'player pause') video.pause();
+        else if (timeline && snapshot.event === 'stop') { video.pause(); video.currentTime = 0; }
+        else if (timeline && snapshot.event === 'player timeupdate') {
+          if (Number.isFinite(snapshot.time) && Math.abs(video.currentTime - snapshot.time) > 0.01) {
+            video.currentTime = mediaTime(snapshot);
+          }
+        }
+        if (generation !== epoch || revision !== snapshot.revision || !socket.connected) return;
+        if (Number.isFinite(snapshot.volume)) video.volume = Math.max(0, Math.min(1, snapshot.volume));
+        video.loop = Boolean(snapshot.effects?.loop);
+        await onSnapshot(snapshot);
+      } finally {
+        if (timeline) {
+          // Native playback and seeking events are queued after property mutation.
+          await new Promise(resolve => setTimeout(resolve, 0));
+          if (commandGeneration === command && generation === epoch) applying = false;
+        }
+      }
+    }
+    socket.on('command applied', snapshot => { void applyCommand(snapshot); });
     socket.on('state snapshot', snapshot => { void applySnapshot(snapshot); });
     socket.on('connect', () => {
       connectedOnce = true;
