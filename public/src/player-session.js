@@ -82,7 +82,7 @@
         video.pause();
         if (snapshot.media?.url) {
           const url = new URL(snapshot.media.url, location.href).href;
-          if (video.currentSrc !== url && video.src !== url) {
+          if (video.src !== url) {
             video.src = snapshot.media.url;
             video.load();
           }
