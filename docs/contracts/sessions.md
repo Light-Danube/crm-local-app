@@ -56,3 +56,5 @@ Default `SESSION_MAX_DISPLAYS=5` (positive integer). Кожен pairing вида
 ## Підтвердження команд
 
 Playback/media/effects commands можуть передавати необов’язковий Socket.IO acknowledgement callback останнім аргументом. Після прийняття сервер повертає `{ok:true,revision}`; при відмові — `{ok:false,error:{code,message}}`, не змінюючи стан. Revision позначає прийняття сервером, а не показ кадру. Існуючі події та команди без callback зберігають свій формат.
+
+Прийняті команди також надсилають `command applied({event,sessionId,media,time,paused,volume,effects,revision})` власнику та кожному display цієї сесії рівно один раз. Upload використовує `event:'media changed'`. Це canonical snapshot після зміни; legacy relay events збережено для сумісності. Клієнт, що переходить на `command applied`, має припинити застосовувати legacy relay, щоб не виконувати команду двічі.
