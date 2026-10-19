@@ -67,17 +67,24 @@
         if (signal.aborted) aborted();
       });
     }
-    function mediaTime(snapshot) {
-      const time = Math.max(0, snapshot.time);
+    function mediaTime(snapshot, elapsed = 0) {
+      const time = Math.max(0, snapshot.time + elapsed);
       if (!Number.isFinite(video.duration)) return time;
       return snapshot.effects?.loop && video.duration > 0
         ? time % video.duration : Math.min(time, video.duration);
+    }
+    function alignYoutube(snapshot, receivedAt) {
+      if (!video.isYouTube || !Number.isFinite(snapshot.time)) return;
+      const elapsed = snapshot.paused ? 0 : Math.max(0, performance.now() - receivedAt) / 1000;
+      const target = mediaTime({ ...snapshot, effects: { loop: video.loop } }, elapsed);
+      if (Math.abs(video.currentTime - target) > 0.01) video.currentTime = target;
     }
     async function applySnapshot(snapshot) {
       if (!snapshot || typeof snapshot !== 'object' || !Number.isInteger(snapshot.revision)) return;
       const expected = getSessionId?.();
       if (expected && expected !== snapshot.sessionId) return;
       if (snapshot.sessionId === restoredSession && snapshot.revision <= revision) return;
+      const receivedAt = snapshot.media?.kind === 'youtube' ? performance.now() : undefined;
       abortRestore();
       restoredSession = snapshot.sessionId;
       revision = snapshot.revision;
@@ -88,17 +95,21 @@
       try {
         await beforeSnapshot(snapshot);
         if (!current(job, epoch)) return;
-        video.pause();
-        if (snapshot.media?.url) {
-          const url = new URL(snapshot.media.url, location.href).href;
-          if (video.src !== url || video.error) {
+        const url = snapshot.media?.url ? new URL(snapshot.media.url, location.href).href : undefined;
+        const replacing = url ? video.src !== url || video.error : video.hasAttribute('src');
+        if (replacing) video.pause(); // Changing source cancels the previous iframe.
+        else await video.pause();
+        if (!current(job, epoch)) return;
+        if (url) {
+          if (replacing) {
             video.src = snapshot.media.url;
             video.load();
           }
           await metadata(job.signal);
           if (!current(job, epoch)) return;
           if (Number.isFinite(snapshot.time) && snapshot.time >= 0) {
-            video.currentTime = mediaTime(snapshot);
+            const elapsed = receivedAt === undefined || snapshot.paused ? 0 : Math.max(0, performance.now() - receivedAt) / 1000;
+            video.currentTime = mediaTime(snapshot, elapsed);
           }
         } else if (video.hasAttribute('src')) {
           video.removeAttribute('src');
@@ -108,8 +119,10 @@
         video.loop = Boolean(snapshot.effects?.loop);
         await onSnapshot(snapshot);
         if (!current(job, epoch)) return;
-        if (snapshot.media && !snapshot.paused) await attemptPlay(() => current(job, epoch));
-        else { video.pause(); setResume(false); }
+        if (snapshot.media && !snapshot.paused) {
+          const played = await attemptPlay(() => current(job, epoch));
+          if (played && current(job, epoch)) alignYoutube(snapshot, receivedAt);
+        } else { video.pause(); setResume(false); }
         if (!current(job, epoch)) return;
         // Native play, pause and seeking events are queued; keep them inside restore.
         await new Promise(resolve => setTimeout(resolve, 0));
@@ -136,16 +149,23 @@
         await applySnapshot(snapshot);
         return;
       }
+      const receivedAt = snapshot.media?.kind === 'youtube' ? performance.now() : undefined;
       revision = snapshot.revision;
       const epoch = generation;
       const timeline = !localPlayback && ['player start', 'player pause', 'stop', 'player timeupdate'].includes(snapshot.event);
       const command = timeline ? ++commandGeneration : commandGeneration;
       if (timeline) applying = true;
       try {
-        if (timeline && snapshot.event === 'player start') await attemptPlay(() => generation === epoch && commandGeneration === command && socket.connected);
-        else if (timeline && snapshot.event === 'player pause') video.pause();
-        else if (timeline && snapshot.event === 'stop') { video.pause(); video.currentTime = 0; }
-        else if (timeline && snapshot.event === 'player timeupdate') {
+        if (timeline && snapshot.event === 'player start') {
+          const played = await attemptPlay(() => generation === epoch && commandGeneration === command && socket.connected);
+          if (played && generation === epoch && commandGeneration === command && socket.connected) alignYoutube(snapshot, receivedAt);
+        } else if (timeline && snapshot.event === 'player pause') {
+          const confirmed = await video.pause();
+          if (confirmed !== false && generation === epoch && commandGeneration === command && socket.connected) alignYoutube(snapshot, receivedAt);
+        } else if (timeline && snapshot.event === 'stop') {
+          const confirmed = await video.pause();
+          if (confirmed !== false && generation === epoch && commandGeneration === command && socket.connected) video.currentTime = 0;
+        } else if (timeline && snapshot.event === 'player timeupdate') {
           if (Number.isFinite(snapshot.time) && Math.abs(video.currentTime - snapshot.time) > 0.01) {
             video.currentTime = mediaTime(snapshot);
           }

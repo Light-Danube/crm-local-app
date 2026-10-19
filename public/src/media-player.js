@@ -77,6 +77,7 @@
     let lastPaused = true;
     let wantsPlay = false;
     let playJob;
+    let pauseJob;
     let display = video.style.display || 'block';
     const nativeListeners = [];
     const emit = event => facade.dispatchEvent(new Event(event));
@@ -94,11 +95,19 @@
       clearTimeout(job.timer);
       if (error) job.reject(error); else job.resolve();
     }
+    function settlePause(confirmed) {
+      if (!pauseJob) return;
+      const job = pauseJob;
+      pauseJob = undefined;
+      clearTimeout(job.timer);
+      job.resolve(confirmed);
+    }
     function reset() {
       generation++;
       clearTimeout(metadataTimer);
       metadataTimer = undefined;
       settlePlay(aborted());
+      settlePause(false);
       const previous = player;
       player = undefined;
       apiReady = false;
@@ -123,6 +132,7 @@
       wantsPlay = false;
       paused = true;
       settlePlay(error);
+      settlePause(false);
       emit('error');
     }
     function playback(nextPaused) {
@@ -183,13 +193,13 @@
             },
             onStateChange(event) {
               if (!valid(epoch)) return;
-              if (event.data === 5) metadata(epoch);
+              if (event.data === 5) { metadata(epoch); settlePause(true); }
               else if (event.data === 1) {
                 if (!wantsPlay) { player?.pauseVideo(); return; }
                 metadata(epoch);
                 playback(false);
                 settlePlay();
-              } else if (event.data === 2) playback(true);
+              } else if (event.data === 2) { playback(true); settlePause(true); }
               else if (event.data === 0) {
                 if (requestedLoop && wantsPlay) {
                   player.seekTo(0, true);
@@ -197,6 +207,7 @@
                 } else {
                   wantsPlay = false;
                   playback(true);
+                  settlePause(true);
                   emit('ended');
                 }
               }
@@ -206,6 +217,7 @@
               wantsPlay = false;
               paused = true;
               settlePlay(autoplay());
+              settlePause(true);
             },
             onError(event) {
               if (!valid(epoch)) return;
@@ -329,15 +341,26 @@
     facade.pause = () => {
       if (mode !== 'youtube') { video.pause(); return; }
       wantsPlay = false;
+      const alreadyPaused = paused;
       paused = true;
       settlePlay(aborted());
-      if (apiReady) player.pauseVideo();
+      if (!apiReady) return Promise.resolve(true);
+      if (pauseJob) return pauseJob.promise;
+      // IFrame commands are asynchronous. Consumers can align time after PAUSED.
+      if (alreadyPaused) { player.pauseVideo(); return Promise.resolve(true); }
+      const promise = new Promise(resolve => {
+        pauseJob = { resolve, timer: setTimeout(() => settlePause(false), deadline) };
+      });
+      pauseJob.promise = promise;
+      try { player.pauseVideo(); } catch { settlePause(false); }
+      return promise;
     };
     facade.play = () => {
       if (destroyed) return Promise.reject(aborted());
       if (mode !== 'youtube') return video.play();
       if (stateError) return Promise.reject(new Error(stateError.message));
       if (!paused) return Promise.resolve();
+      settlePause(false);
       if (playJob) return playJob.promise;
       if (!started) void loadYoutube();
       if (stateError) return Promise.reject(new Error(stateError.message));
