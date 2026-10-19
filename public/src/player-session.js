@@ -16,10 +16,12 @@
     const setStatus = text => { if (statusElement) statusElement.textContent = text; };
     const setResume = visible => { if (resumeButton) resumeButton.hidden = !visible; };
     let mediaFailed = false;
+    const mediaErrorMessage = () => video.isYouTube && video.error?.message
+      ? video.error.message : 'Не вдалося завантажити відео. Перевірте посилання, формат і з’єднання.';
     video.addEventListener('error', () => {
       if ((!video.hasAttribute('src') && !video.currentSrc) || !video.error || video.error.code === 1) return;
       mediaFailed = true;
-      setStatus('Не вдалося завантажити відео. Перевірте посилання, формат і з’єднання.');
+      setStatus(mediaErrorMessage());
     });
     video.addEventListener('loadedmetadata', () => {
       if (!mediaFailed) return;
@@ -44,7 +46,7 @@
         setResume(true);
         setStatus(error?.name === 'NotAllowedError'
           ? 'Натисніть «Відновити відтворення», щоб дозволити відео.'
-          : 'Не вдалося відтворити відео. Спробуйте відновити відтворення.');
+          : video.isYouTube && video.error?.message || 'Не вдалося відтворити відео. Спробуйте відновити відтворення.');
         return false;
       }
     }
@@ -57,7 +59,7 @@
           signal.removeEventListener('abort', aborted);
         };
         const loaded = () => { cleanup(); resolve(); };
-        const failed = () => { cleanup(); reject(new Error('Не вдалося завантажити відео.')); };
+        const failed = () => { cleanup(); reject(new Error(mediaErrorMessage())); };
         const aborted = () => { cleanup(); reject(new DOMException('Restore cancelled', 'AbortError')); };
         video.addEventListener('loadedmetadata', loaded, { once: true });
         video.addEventListener('error', failed, { once: true });
@@ -89,7 +91,7 @@
         video.pause();
         if (snapshot.media?.url) {
           const url = new URL(snapshot.media.url, location.href).href;
-          if (video.src !== url) {
+          if (video.src !== url || video.error) {
             video.src = snapshot.media.url;
             video.load();
           }

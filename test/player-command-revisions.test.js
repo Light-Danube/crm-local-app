@@ -99,3 +99,17 @@ test('a failed media restore keeps the live session available for a replacement 
   assert.equal(player.isReady(), true);
   assert.equal(video.src, '/youtube/abcdefghijk');
 });
+
+test('retrying an errored source reloads it even when the canonical URL is unchanged', async t => {
+  const { receive, video, snapshot, player } = await browser(t);
+  video.src = 'http://localhost/youtube/RoYXgdHafBA';
+  video.error = { code: 4 };
+  video.readyState = 0;
+  video.load = () => { video.loadCount++; video.error = null; video.readyState = 1; };
+  receive({ ...snapshot, event: 'video url', revision: 1,
+    media: { kind: 'youtube', url: '/youtube/RoYXgdHafBA' } });
+  await wait(5);
+  assert.equal(video.loadCount, 1);
+  assert.equal(player.isReady(), true);
+  assert.equal(video.error, null);
+});
