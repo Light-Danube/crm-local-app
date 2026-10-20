@@ -23,7 +23,7 @@ mkdir -p logs uploads
 npm start
 ```
 
-Validated runtime: Node.js 24.19.0 / npm 11.9.0; the repository currently has no version pin. `npm start` runs nodemon; the server currently hardcodes port 3000. Run it from the repository root because uploads use a relative path. Create `logs` before startup or its write stream can fail. A normal production launch should eventually use a dedicated script rather than nodemon; no production script exists today.
+Validated runtime: Node.js 24.19.0 / npm 11.9.0; the repository currently has no version pin. `npm start` runs `node server.js` without a file watcher and works after `npm ci --omit=dev`. For development, use `npm ci` and `npm run dev`; native Node.js watch mode restarts the server when server, library, public asset or page files change. It does not reload browser pages, and each restart loses in-memory sessions. The CLI still listens on port 3000. Create `logs` before startup or its write stream can fail; uploads are created by the media service. This change does not configure the port or change runtime directory handling.
 
 No credentials or external service are needed for local-file development. YouTube playback uses the official IFrame API in each browser, with external play/pause/seek controls on the master. Every display needs Internet access and a video that permits embedding. The legacy bounded `/youtube/:id` extractor route remains for compatibility but is no longer used by the application UI. Inspect only credential names/status; never print values or commit local credentials. Preserve TLS, checksum and package-signature verification.
 
