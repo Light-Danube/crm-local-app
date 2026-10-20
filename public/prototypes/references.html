@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="uk">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UI референси · Відео / Екрани</title>
+<style>body{margin:0;background:#f7f8f5;color:#152b36;font:16px/1.6 system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:36px 20px}h1{line-height:1.15}a{color:#176959;text-underline-offset:3px}a:focus-visible{outline:3px solid #167bba;outline-offset:4px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr));gap:20px}.card{background:white;border:1px solid #dce4de;border-radius:16px;padding:24px}blockquote{margin:16px 0;padding-left:12px;border-left:3px solid #90b9a7;font-size:14px}.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.flow span{padding:6px 9px;background:#eaf1ec;border-radius:6px;font-size:14px}small{display:block;color:#50616a}h2{margin-top:0}</style>
+<main><a href="/">Робочий застосунок</a>
+<h1>UI референси для наступних ітерацій</h1>
+<p>Збережено 20 жовтня 2026. Нижче — власні схеми патернів із документації шести продуктів, а не скриншоти їхніх інтерфейсів. Оригінальні приклади та контекст доступні за посиланнями.</p>
+<p>Інтерактивний прототип робочого простору буде додано окремою невеликою зміною.</p>
+<div class="grid">
+<article class="card" id="screencloud">
+<h2>ScreenCloud</h2>
+<small>Official help guide</small>
+<blockquote>enter the 6-character pairing code exactly how it appears</blockquote><div class="flow" aria-label="Схема процесу"><span>Код на екрані</span> <b aria-hidden="true">→</b> <span>Додати екран</span> <b aria-hidden="true">→</b> <span>Список екранів</span></div>
+<p>Явна дія додавання екрана, поле коду, повідомлення про помилку й список підключених екранів.</p>
+<p><strong>Для нас:</strong> Показати контекст коду й статуси. У нас код створює пульт, а вводить екран — напрямок не змінюємо.</p>
+<small>Документація описує комерційний signage-продукт; не переносимо акаунти, ліцензії та CMS.</small>
+<p><a href="https://help.screencloud.com/en/articles/10096578-an-introduction-to-screencloud-how-to-use-screencloud-for-digital-signage" target="_blank" rel="noreferrer">Документація ScreenCloud</a></p>
+</article>
+<article class="card" id="yodeck">
+<h2>Yodeck</h2>
+<small>Official registration guide</small>
+<blockquote>Type the Registration Code in the Registration Code field.</blockquote><div class="flow" aria-label="Схема процесу"><span>Пристрій готовий</span> <b aria-hidden="true">→</b> <span>Поле коду</span> <b aria-hidden="true">→</b> <span>Підтвердження</span></div>
+<p>Пряме введення коду для досвідченого користувача та контекстна допомога для першого запуску.</p>
+<p><strong>Для нас:</strong> Одне підписане поле на шість цифр; допомога біля поля. Вставлення й Enter працюють без шести окремих boxes.</p>
+<small>Yodeck використовує інший формат і напрямок реєстрації. Наші шестизначний код, TTL та auth лишаються чинними.</small>
+<p><a href="https://www.yodeck.com/docs/user-manual/screen-registration-yodeck/" target="_blank" rel="noreferrer">Документація Yodeck</a></p>
+</article>
+<article class="card" id="optisigns">
+<h2>OptiSigns</h2>
+<small>Official setup guide</small>
+<blockquote>Set up &amp; add a screen</blockquote><div class="flow" aria-label="Схема процесу"><span>Приєднати</span> <b aria-hidden="true">→</b> <span>Вибрати контент</span> <b aria-hidden="true">→</b> <span>Передати на екран</span></div>
+<p>Окремі кроки приєднання екрана, завантаження контенту й призначення контенту.</p>
+<p><strong>Для нас:</strong> Розділити «обрати джерело» та «передати», показати порожній стан без медіа.</p>
+<small>Не додаємо бібліотеку, schedules чи завантаження в хмару — це інший обсяг продукту.</small>
+<p><a href="https://support.optisigns.com/hc/en-us/articles/360016374813-Set-up-add-a-screen" target="_blank" rel="noreferrer">Документація OptiSigns</a></p>
+</article>
+<article class="card" id="propresenter">
+<h2>ProPresenter</h2>
+<small>Official interface guide</small>
+<blockquote>Below the Preview window is the screen drop-down indicator along with the transport controls.</blockquote><div class="flow" aria-label="Схема процесу"><span>Джерело</span> <b aria-hidden="true">→</b> <span>Preview + playback</span> <b aria-hidden="true">→</b> <span>Додаткові параметри</span></div>
+<p>Preview та транспортні кнопки поруч; складніші функції згруповано окремо.</p>
+<p><strong>Для нас:</strong> Play/pause/seek/volume перед effects; повний набір ефектів доступний через details.</p>
+<small>Це структурний референс ProPresenter, не твердження про останню версію чи поточний pixel layout.</small>
+<p><a href="https://support.renewedvision.com/hc/en-us/articles/360041345954-Understanding-The-ProPresenter-User-Interface" target="_blank" rel="noreferrer">Документація ProPresenter</a></p>
+</article>
+<article class="card" id="watch2gether">
+<h2>Watch2Gether</h2>
+<small>Official community guide</small>
+<blockquote>On Desktop, click “Invite” in the sidebar on the left side of the room.</blockquote><div class="flow" aria-label="Схема процесу"><span>Створити кімнату</span> <b aria-hidden="true">→</b> <span>Запросити</span> <b aria-hidden="true">→</b> <span>Обрати відео</span></div>
+<p>Окрема дія запрошення та розрізнення вибору джерела й взаємодії з playback.</p>
+<p><strong>Для нас:</strong> Дія приєднання має бути постійно видимою. URL джерела вводиться прямо, без прихованого меню.</p>
+<small>Гостьове shared control не переносимо; owner лишається єдиним controller. Не копіюємо invitation tokens у URL.</small>
+<p><a href="https://community.w2g.tv/t/how-to-use-watch2gether/736" target="_blank" rel="noreferrer">Документація Watch2Gether</a></p>
+</article>
+<article class="card" id="syncplay">
+<h2>Syncplay</h2>
+<small>Official client guide</small>
+<blockquote>Syncing playback with a large group of strangers? Consider using managed rooms</blockquote><div class="flow" aria-label="Схема процесу"><span>З’єднання</span> <b aria-hidden="true">→</b> <span>Медіа</span> <b aria-hidden="true">→</b> <span>Відтворення</span></div>
+<p>Окремі connection/media settings, додаткові параметри за Show more settings та керовані кімнати.</p>
+<p><strong>Для нас:</strong> Мінімум полів для приєднання; розширені налаштування закриті за замовчуванням.</p>
+<small>Syncplay потребує зовнішніх media players. Не переносимо його мережеві чи stream-гарантії в браузерний застосунок.</small>
+<p><a href="https://syncplay.pl/guide/client/" target="_blank" rel="noreferrer">Документація Syncplay</a></p>
+</article></div>
+<p>Схеми — власна інтерпретація документації. Обіцянки синхронізації чи рекламні твердження цих продуктів тут не перевірялися. Наші ролі, авторизація та ліміти сесії зберігаються.</p>
+</main>
+</html>

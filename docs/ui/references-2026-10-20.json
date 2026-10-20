@@ -1,0 +1,131 @@
+{
+  "research": {
+    "date": "2026-10-20",
+    "search": "Exa",
+    "requestedResultsReviewed": 28,
+    "searchCalls": 5,
+    "searchTerritories": [
+      "screen pairing",
+      "operator playback hierarchy",
+      "shared playback and readiness"
+    ],
+    "selectedProducts": 6,
+    "fullPagesRead": 7,
+    "excluded": [
+      "Random public rooms with access keys",
+      "Hobby clones",
+      "Old PDF manual as evidence of current appearance"
+    ],
+    "limitations": "Documentation research. No logged-in product trials or comparative sync benchmarks. Schematics are original, not copied screenshots."
+  },
+  "sources": [
+    {
+      "id": "screencloud",
+      "name": "ScreenCloud",
+      "url": "https://help.screencloud.com/en/articles/10096578-an-introduction-to-screencloud-how-to-use-screencloud-for-digital-signage",
+      "kind": "Official help guide",
+      "quote": "enter the 6-character pairing code exactly how it appears",
+      "pattern": "Явна дія додавання екрана, поле коду, повідомлення про помилку й список підключених екранів.",
+      "flow": [
+        "Код на екрані",
+        "Додати екран",
+        "Список екранів"
+      ],
+      "adapt": "Показати контекст коду й статуси. У нас код створює пульт, а вводить екран — напрямок не змінюємо.",
+      "caveat": "Документація описує комерційний signage-продукт; не переносимо акаунти, ліцензії та CMS.",
+      "reviewedOn": "2026-10-20",
+      "evidence": "Official documentation text; not an authenticated product walkthrough",
+      "illustration": "Original schematic based on documented steps; not a product screenshot"
+    },
+    {
+      "id": "yodeck",
+      "name": "Yodeck",
+      "url": "https://www.yodeck.com/docs/user-manual/screen-registration-yodeck/",
+      "kind": "Official registration guide",
+      "quote": "Type the Registration Code in the Registration Code field.",
+      "pattern": "Пряме введення коду для досвідченого користувача та контекстна допомога для першого запуску.",
+      "flow": [
+        "Пристрій готовий",
+        "Поле коду",
+        "Підтвердження"
+      ],
+      "adapt": "Одне підписане поле на шість цифр; допомога біля поля. Вставлення й Enter працюють без шести окремих boxes.",
+      "caveat": "Yodeck використовує інший формат і напрямок реєстрації. Наші шестизначний код, TTL та auth лишаються чинними.",
+      "reviewedOn": "2026-10-20",
+      "evidence": "Official documentation text; not an authenticated product walkthrough",
+      "illustration": "Original schematic based on documented steps; not a product screenshot"
+    },
+    {
+      "id": "optisigns",
+      "name": "OptiSigns",
+      "url": "https://support.optisigns.com/hc/en-us/articles/360016374813-Set-up-add-a-screen",
+      "kind": "Official setup guide",
+      "quote": "Set up & add a screen",
+      "pattern": "Окремі кроки приєднання екрана, завантаження контенту й призначення контенту.",
+      "flow": [
+        "Приєднати",
+        "Вибрати контент",
+        "Передати на екран"
+      ],
+      "adapt": "Розділити «обрати джерело» та «передати», показати порожній стан без медіа.",
+      "caveat": "Не додаємо бібліотеку, schedules чи завантаження в хмару — це інший обсяг продукту.",
+      "reviewedOn": "2026-10-20",
+      "evidence": "Official documentation text; not an authenticated product walkthrough",
+      "illustration": "Original schematic based on documented steps; not a product screenshot"
+    },
+    {
+      "id": "propresenter",
+      "name": "ProPresenter",
+      "url": "https://support.renewedvision.com/hc/en-us/articles/360041345954-Understanding-The-ProPresenter-User-Interface",
+      "kind": "Official interface guide",
+      "quote": "Below the Preview window is the screen drop-down indicator along with the transport controls.",
+      "pattern": "Preview та транспортні кнопки поруч; складніші функції згруповано окремо.",
+      "flow": [
+        "Джерело",
+        "Preview + playback",
+        "Додаткові параметри"
+      ],
+      "adapt": "Play/pause/seek/volume перед effects; повний набір ефектів доступний через details.",
+      "caveat": "Це структурний референс ProPresenter, не твердження про останню версію чи поточний pixel layout.",
+      "reviewedOn": "2026-10-20",
+      "evidence": "Official documentation text; not an authenticated product walkthrough",
+      "illustration": "Original schematic based on documented steps; not a product screenshot"
+    },
+    {
+      "id": "watch2gether",
+      "name": "Watch2Gether",
+      "url": "https://community.w2g.tv/t/how-to-use-watch2gether/736",
+      "kind": "Official community guide",
+      "quote": "On Desktop, click “Invite” in the sidebar on the left side of the room.",
+      "pattern": "Окрема дія запрошення та розрізнення вибору джерела й взаємодії з playback.",
+      "flow": [
+        "Створити кімнату",
+        "Запросити",
+        "Обрати відео"
+      ],
+      "adapt": "Дія приєднання має бути постійно видимою. URL джерела вводиться прямо, без прихованого меню.",
+      "caveat": "Гостьове shared control не переносимо; owner лишається єдиним controller. Не копіюємо invitation tokens у URL.",
+      "reviewedOn": "2026-10-20",
+      "evidence": "Official documentation text; not an authenticated product walkthrough",
+      "illustration": "Original schematic based on documented steps; not a product screenshot"
+    },
+    {
+      "id": "syncplay",
+      "name": "Syncplay",
+      "url": "https://syncplay.pl/guide/client/",
+      "kind": "Official client guide",
+      "quote": "Syncing playback with a large group of strangers? Consider using managed rooms",
+      "pattern": "Окремі connection/media settings, додаткові параметри за Show more settings та керовані кімнати.",
+      "flow": [
+        "З’єднання",
+        "Медіа",
+        "Відтворення"
+      ],
+      "adapt": "Мінімум полів для приєднання; розширені налаштування закриті за замовчуванням.",
+      "caveat": "Syncplay потребує зовнішніх media players. Не переносимо його мережеві чи stream-гарантії в браузерний застосунок.",
+      "reviewedOn": "2026-10-20",
+      "evidence": "Official documentation text; not an authenticated product walkthrough",
+      "illustration": "Original schematic based on documented steps; not a product screenshot"
+    }
+  ]
+}
