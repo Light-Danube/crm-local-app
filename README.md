@@ -31,6 +31,12 @@ The purpose of this project is to demonstrate a web-based video playback system 
 1. **Controller Device:** On `/`, choose “Відео з пристрою” or “YouTube”. The controller shows the shared pairing code.
 2. **Display Device:** On the viewing device, open the application and choose “Приєднати екран” in the top navigation, then enter that code. The controller also has “Відкрити екран” for opening another screen in a new tab.
 
+## UI prototype
+
+After starting the server, open `/prototypes/references.html` for the saved source patterns and `/prototypes/session-workspace.html` for the interactive controller/display prototype. Its actions use demo data; they do not upload files, connect screens or play YouTube. The working application remains at `/`.
+
+On the prototype, choose a local file or YouTube URL, send it, try playback controls, and add/remove demo screens. Switch to “Екран”, try an incorrect code, then `482619`, and simulate autoplay recovery. Test keyboard navigation and a narrow viewport. Record task completion, mistakes and comments; the automated checks do not replace user testing. See [the research and test scenarios](docs/ui/research-2026-10-20.md).
+
 ## Implementation
 
 The web application utilizes a client-server architecture, where one device serves as the server hosting the web application, and multiple devices act as clients accessing the application through a web browser.

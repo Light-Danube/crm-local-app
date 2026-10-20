@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Прототип · пульт та екран</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#152b36;background:#f5f7f4;line-height:1.5;--accent:#176959;--border:#dbe4dd}*{box-sizing:border-box}body{margin:0}button,input{font:inherit}button,a,input{outline-offset:4px}button:focus-visible,a:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #167bba}button,a{touch-action:manipulation}button{cursor:pointer;border:1px solid var(--border);border-radius:9px;padding:10px 14px;background:#fff;color:inherit;font-weight:650}button:disabled{opacity:.45;cursor:not-allowed}button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}a{color:var(--accent);text-underline-offset:3px}label{display:block;font-size:14px;font-weight:650;margin:14px 0 7px}input:not([type=range]):not([type=checkbox]){width:100%;min-width:0;padding:11px;border:1px solid #a7bab0;border-radius:8px;background:#fff;color:inherit}input[type=range]{width:100%;accent-color:var(--accent)}[hidden]{display:none!important}.demo-strip{padding:9px 24px;background:#e6eee7;font-size:13px;text-align:center}.shell{max-width:1460px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:24px}.brand{font-weight:750;font-size:18px}.muted{color:#5c6d73}.small{font-size:13px}.role-picker{display:flex;gap:5px;padding:4px;background:#e8ede7;border-radius:11px}.role-picker button{border:0;background:transparent}.role-picker [aria-pressed=true]{background:#fff;box-shadow:0 1px 4px #152b3612}.top-actions{display:flex;align-items:center;gap:18px}.layout{display:grid;grid-template-columns:260px minmax(0,1fr) 285px;gap:22px;align-items:start}.panel{background:#fff;border:1px solid var(--border);border-radius:16px;padding:22px;min-width:0}.panel h1,.panel h2,.panel h3{margin:0 0 10px;line-height:1.25}.panel h1{font-size:24px}.panel h2{font-size:17px}.panel h3{font-size:15px}.eyebrow{text-transform:uppercase;letter-spacing:.08em;font-size:11px;font-weight:750;color:var(--accent);margin:0 0 10px}.source-tabs{display:flex;gap:6px;margin:18px 0}.source-tabs button{flex:1;padding:8px}.source-tabs [aria-pressed=true]{background:#e7f2ed;border-color:#9ebcad;color:var(--accent)}.source-tip{margin-top:18px;padding-top:18px;border-top:1px solid var(--border)}.preview{position:relative;aspect-ratio:16/9;border-radius:12px;display:grid;place-items:center;text-align:center;padding:28px;background:#182e38;color:#f6fbf8;overflow:hidden}.preview:before{content:"";position:absolute;width:65%;height:200%;background:#ffffff05;transform:rotate(25deg);pointer-events:none}.preview-mark{display:grid;place-items:center;border:1px solid #ffffff44;width:54px;height:54px;border-radius:50%;font-size:20px;margin:0 auto 14px}.preview p{margin:7px 0;font-size:13px;color:#c1d4cf}.preview strong{overflow-wrap:anywhere}.media-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:18px}.badge{display:inline-flex;align-items:center;gap:7px;padding:5px 9px;font-size:12px;border-radius:30px;background:#edf5ef;color:#216441}.badge:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}.badge.offline{background:#eff1f2;color:#637279}.badge.reconnecting{background:#fff4df;color:#855913}.transport{display:flex;gap:8px;margin:20px 0 14px}.transport button{flex:1}.time-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:#5c6d73}.volume-row{display:grid;grid-template-columns:auto 1fr 38px;gap:12px;align-items:center;margin:15px 0}.volume-row label{margin:0}.effects{margin-top:20px;border-top:1px solid var(--border);padding-top:16px}.effects summary{cursor:pointer;font-weight:650}.effect-options{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px}.effect-options label{margin:0;display:flex;gap:7px;align-items:center;font-weight:400}.inverted{transform:scaleX(-1)}.warm{filter:sepia(.3)}.pairing-code{font-size:30px;font-weight:750;letter-spacing:.14em;font-variant-numeric:tabular-nums;margin:12px 0 2px}.screen-list{list-style:none;margin:16px 0;padding:0}.screen-item{padding:14px 0;border-top:1px solid var(--border)}.screen-item:first-child{border-top:0}.screen-line{display:flex;justify-content:space-between;align-items:center;gap:8px}.screen-item button{font-size:12px;padding:6px 8px;margin:10px 5px 0 0;font-weight:500}.screen-name{font-weight:650;font-size:14px}.full{width:100%}.status{margin:12px 0;font-size:14px;min-height:22px}.error{color:#9d342e}.display-demo{max-width:520px;margin:38px auto}.display-demo>p{color:#5c6d73}.code-input{font-size:26px!important;letter-spacing:.2em;font-variant-numeric:tabular-nums}.display-actions{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0}.footer{margin:28px 0 8px;border-top:1px solid var(--border);padding-top:18px;display:flex;gap:12px 24px;flex-wrap:wrap;color:#5c6d73;font-size:12px}.footer p{flex-basis:100%;margin:0}.demo-actions{margin:20px 0;text-align:right}.demo-actions button{font-size:13px;background:transparent}
+@media(max-width:1100px){.layout{grid-template-columns:230px minmax(0,1fr)}.screens{grid-column:1/-1}.screen-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.screen-item{border:0}.screen-line{align-items:flex-start;flex-direction:column}}
+@media(max-width:650px){.shell{padding:18px}.top{align-items:flex-start}.top-actions{width:100%;justify-content:space-between;gap:10px;font-size:13px}.role-picker button{padding:8px 12px;font-size:14px}.layout{grid-template-columns:1fr;gap:16px}.panel{padding:18px}.sources{order:0}.playback{order:1}.layout.has-media .sources{order:1}.layout.has-media .playback{order:0}.screens{order:2;grid-column:auto}.screen-list{grid-template-columns:1fr;gap:0}.screen-item{border-top:1px solid var(--border)}.screen-line{flex-direction:row;align-items:center}.transport{gap:5px}.transport button{font-size:14px;padding:9px}.display-demo{margin:12px auto}.demo-strip{padding:9px 15px}.pairing-code{font-size:28px}.preview{padding:18px}.volume-row{gap:8px}.footer{gap:12px}}
+@media(prefers-reduced-motion:no-preference){button{transition:background 150ms ease,transform 150ms ease}button:not(:disabled):hover{transform:translateY(-1px)}.panel{animation:arrive 220ms ease-out}@keyframes arrive{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}}
+</style>
+</head>
+<body>
+<div class="demo-strip"><strong>Інтерактивний прототип · демонстраційні дані</strong> — дії відбуваються лише на цій сторінці.</div>
+<div class="shell">
+<header class="top"><div class="brand">Відео / Екрани</div><div class="top-actions"><div class="role-picker" aria-label="Режим прототипу"><button id="controllerRole" aria-pressed="true">Пульт</button><button id="displayRole" aria-pressed="false">Екран</button></div><a href="/">Робочий застосунок</a></div></header>
+<main>
+<div id="controllerView" class="layout">
+<section class="panel sources" aria-labelledby="sourceHeading"><p class="eyebrow">01 · Джерело</p><h2 id="sourceHeading">Що показуватимемо?</h2><p class="muted small">Виберіть відео. На екрани його передає окрема дія.</p>
+<div class="source-tabs" aria-label="Джерело відео"><button id="fileTab" aria-pressed="true">Файл</button><button id="youtubeTab" aria-pressed="false">YouTube</button></div>
+<div id="fileSource"><label for="videoFile">Відео з пристрою</label><input id="videoFile" type="file" accept=".mp4,.webm,video/mp4,video/webm"><p class="small muted">У прототипі читається лише назва файла.</p></div>
+<form id="youtubeSource" hidden novalidate><label for="youtubeUrl">Посилання YouTube</label><input id="youtubeUrl" type="url" placeholder="https://youtu.be/…" aria-describedby="sourceFeedback"><button class="full" style="margin-top:12px" type="submit">Додати відео</button></form>
+<p id="sourceFeedback" class="status" role="status"></p><button id="sendMedia" class="primary full" disabled>Передати на екрани</button>
+<div class="source-tip small muted">Після передачі керуйте відео в плеєрі поруч. Додаткові ефекти зібрано під ним.</div></section>
+<section class="panel playback" aria-labelledby="playbackHeading"><div class="media-heading"><div><p class="eyebrow">02 · Відтворення</p><h1 id="playbackHeading">Попередній перегляд</h1></div><span id="playbackBadge" class="badge offline">Відео не вибрано</span></div>
+<div id="preview" class="preview"><div><div id="previewMark" class="preview-mark" aria-hidden="true">＋</div><strong id="mediaName">Тут буде ваше відео</strong><p id="previewDescription">Це макет плеєра, відео не завантажується.</p></div></div>
+<div class="transport" aria-label="Керування відтворенням"><button id="play" class="primary" disabled>Відтворити</button><button id="pause" disabled>Пауза</button><button id="stop" disabled>Стоп</button></div>
+<label class="small" for="seek">Позиція відео</label><input id="seek" type="range" min="0" max="120" step="1" value="0" disabled><div class="time-row"><output id="position">0:00</output><span>2:00 · демонстраційна шкала</span></div>
+<div class="volume-row"><label for="volume">Гучність</label><input id="volume" type="range" min="0" max="100" value="70" disabled><output id="volumeValue">70%</output></div>
+<details class="effects"><summary>Додаткові ефекти</summary><div class="effect-options"><label><input id="loop" type="checkbox" disabled> Повторювати</label><label><input id="inversion" type="checkbox" disabled> Віддзеркалити</label><label><input id="color" type="checkbox" disabled> Теплий колір</label></div></details>
+<p id="playbackFeedback" class="status" role="status">Спершу виберіть джерело відео.</p></section>
+<aside class="panel screens" aria-labelledby="screensHeading"><p class="eyebrow">03 · Екрани</p><h2 id="screensHeading">Підключені пристрої</h2><p class="small muted">Демонстраційний код</p><div class="pairing-code" aria-label="Код 482619">482 619</div><p class="small muted">Один код для кількох екранів. У застосунку час дії показано поруч із кодом.</p><ul id="screenList" class="screen-list"></ul><button id="addScreen" class="full">Додати демоекран</button><p id="screenFeedback" class="status" role="status"></p></aside>
+</div>
+<section id="displayView" class="panel display-demo" aria-labelledby="displayHeading" hidden><p class="eyebrow">На пристрої для перегляду</p><h1 id="displayHeading">Приєднати екран</h1><p>Знайдіть код на пульті й введіть його тут. Для цієї демонстрації використовуйте <strong>482619</strong>.</p>
+<form id="pairingForm" novalidate><label for="pairingCode">Шестизначний код доступу</label><input class="code-input" id="pairingCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" aria-describedby="pairingHelp pairingFeedback"><p id="pairingHelp" class="small muted">Вставте або введіть усі шість цифр в одному полі.</p><button id="pairScreen" class="primary full" type="submit">Приєднати екран</button></form><p id="pairingFeedback" class="status" role="status"></p>
+<div id="displaySession" hidden><span class="badge">Екран приєднано</span><p id="displayStatus" class="status" role="status">Очікуємо відео з пульта.</p><div class="display-actions"><button id="simulateBlock">Показати блокування автозапуску</button><button id="resume" class="primary" hidden>Відновити відтворення</button></div><button id="disconnectDisplay">Ввести інший код</button></div></section>
+</main>
+<div class="demo-actions"><button id="resetDemo">Скинути демонстрацію</button></div>
+<footer class="footer"><a href="/prototypes/references.html">Усі збережені референси</a><p>Оригінальний макет за патернами з офіційної документації. Приєднання, стани й відтворення тут симулюються; синхронізація та мережа не вимірюються.</p><a href="https://www.yodeck.com/docs/user-manual/screen-registration-yodeck/" target="_blank" rel="noreferrer">Yodeck · приєднання</a><a href="https://support.optisigns.com/hc/en-us/articles/360016374813-Set-up-add-a-screen" target="_blank" rel="noreferrer">OptiSigns · послідовність дій</a><a href="https://support.renewedvision.com/hc/en-us/articles/360041345954-Understanding-The-ProPresenter-User-Interface" target="_blank" rel="noreferrer">ProPresenter · плеєр</a><a href="https://syncplay.pl/guide/client/" target="_blank" rel="noreferrer">Syncplay · готовність</a></footer>
+</div>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+let selected = '', current = '', playing = false, serial = 2;
+let screens = [{ id: 1, state: 'connected' }, { id: 2, state: 'offline' }];
+function message(id, text, error = false) { $(id).textContent = text; $(id).classList.toggle('error', error); }
+function role(display) {
+  $('controllerView').hidden = display; $('displayView').hidden = !display;
+  $('controllerRole').setAttribute('aria-pressed', String(!display)); $('displayRole').setAttribute('aria-pressed', String(display));
+}
+$('controllerRole').onclick = () => role(false); $('displayRole').onclick = () => role(true);
+function source(youtube) {
+  $('fileSource').hidden = youtube; $('youtubeSource').hidden = !youtube;
+  $('fileTab').setAttribute('aria-pressed', String(!youtube)); $('youtubeTab').setAttribute('aria-pressed', String(youtube));
+  selected = ''; $('sendMedia').disabled = true; message('sourceFeedback', '');
+}
+$('fileTab').onclick = () => source(false); $('youtubeTab').onclick = () => source(true);
+$('videoFile').onchange = () => {
+  const file = $('videoFile').files[0];
+  selected = file && /\.(mp4|webm)$/i.test(file.name) ? file.name : '';
+  $('sendMedia').disabled = !selected;
+  message('sourceFeedback', selected ? `Вибрано: ${selected}` : 'Виберіть файл MP4 або WebM.', !selected);
+};
+function youtubeId(value) {
+  try {
+    const url = new URL(value); if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.port) return null;
+    const id = url.hostname === 'youtu.be' ? url.pathname.slice(1) : ['youtube.com', 'www.youtube.com', 'm.youtube.com'].includes(url.hostname) ? url.pathname === '/watch' ? url.searchParams.get('v') : /^\/shorts\/([\w-]{11})$/.exec(url.pathname)?.[1] : null;
+    return /^[\w-]{11}$/.test(id || '') ? id : null;
+  } catch { return null; }
+}
+$('youtubeSource').onsubmit = event => {
+  event.preventDefault(); const id = youtubeId($('youtubeUrl').value.trim()); selected = id ? `YouTube · ${id}` : '';
+  $('sendMedia').disabled = !selected; $('youtubeUrl').setAttribute('aria-invalid', String(!id));
+  message('sourceFeedback', id ? 'Посилання перевірено. Можна передати відео.' : 'Введіть посилання watch, Shorts або youtu.be.', !id);
+};
+function playback() {
+  $('controllerView').classList.toggle('has-media', Boolean(current));
+  const state = !current ? 'Відео не вибрано' : playing ? 'Відтворення' : 'На паузі';
+  $('playbackBadge').textContent = state; $('playbackBadge').classList.toggle('offline', !playing);
+  $('previewMark').textContent = !current ? '＋' : playing ? 'Ⅱ' : '▷';
+  $('mediaName').textContent = current || 'Тут буде ваше відео';
+  $('previewDescription').textContent = current ? 'Демонстрація керування · справжнє відео не завантажується.' : 'Це макет плеєра, відео не завантажується.';
+  for (const id of ['play', 'pause', 'stop', 'seek', 'volume', 'loop', 'inversion', 'color']) $(id).disabled = !current;
+  $('play').disabled = !current || playing; $('pause').disabled = !current || !playing;
+}
+$('sendMedia').onclick = () => { current = selected; playing = false; $('seek').value = 0; updateTime(); playback(); message('playbackFeedback', 'Демовідео передано. Можна розпочати відтворення.'); };
+$('play').onclick = () => { playing = true; playback(); message('playbackFeedback', 'Відтворення · симуляція без завантаження відео.'); };
+$('pause').onclick = () => { playing = false; playback(); message('playbackFeedback', 'Демовідео на паузі.'); };
+$('stop').onclick = () => { playing = false; $('seek').value = 0; updateTime(); playback(); message('playbackFeedback', 'Зупинено на початку.'); };
+function updateTime() { const seconds = Number($('seek').value); $('position').value = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`; }
+$('seek').oninput = updateTime; $('volume').oninput = () => { $('volumeValue').value = `${$('volume').value}%`; };
+$('inversion').onchange = () => $('preview').classList.toggle('inverted', $('inversion').checked);
+$('color').onchange = () => $('preview').classList.toggle('warm', $('color').checked);
+$('loop').onchange = () => message('playbackFeedback', $('loop').checked ? 'Повторення увімкнено в макеті.' : 'Повторення вимкнено в макеті.');
+const states = { connected: 'Підключено', reconnecting: 'Відновлення', offline: 'Не в мережі' };
+function renderScreens() {
+  $('screenList').replaceChildren();
+  for (const screen of screens) {
+    const item = document.createElement('li'); item.className = 'screen-item'; item.dataset.screen = screen.id;
+    const line = document.createElement('div'); line.className = 'screen-line';
+    const name = document.createElement('span'); name.className = 'screen-name'; name.textContent = `Екран ${screen.id}`;
+    const status = document.createElement('span'); status.className = `badge ${screen.state}`; status.textContent = states[screen.state]; line.append(name, status);
+    const reconnect = document.createElement('button'); reconnect.textContent = screen.state === 'connected' ? 'Втратити з’єднання' : 'Відновити';
+    reconnect.onclick = () => { screen.state = screen.state === 'connected' ? 'reconnecting' : 'connected'; renderScreens(); $('screenList').querySelector(`[data-screen="${screen.id}"] button`).focus(); message('screenFeedback', `Екран ${screen.id}: ${states[screen.state]}.`); };
+    const remove = document.createElement('button'); remove.textContent = 'Видалити'; remove.setAttribute('aria-label', `Видалити екран ${screen.id}`);
+    remove.onclick = () => { screens = screens.filter(item => item !== screen); renderScreens(); $('addScreen').focus(); message('screenFeedback', 'Демоекран видалено.'); };
+    item.append(line, reconnect, remove); $('screenList').append(item);
+  }
+  $('addScreen').disabled = screens.length >= 5;
+  $('addScreen').textContent = screens.length >= 5 ? 'Усі 5 демомісць зайнято' : 'Додати демоекран';
+}
+$('addScreen').onclick = () => { if (screens.length < 5) screens.push({ id: ++serial, state: 'connected' }); renderScreens(); message('screenFeedback', 'Демоекран додано.'); };
+$('pairingForm').onsubmit = event => {
+  event.preventDefault(); const valid = $('pairingCode').value.trim() === '482619';
+  $('pairingCode').setAttribute('aria-invalid', String(!valid));
+  message('pairingFeedback', valid ? 'Демонстраційне приєднання успішне.' : 'Код не підходить. Для цієї демонстрації введіть 482619.', !valid);
+  if (valid) { $('pairingForm').hidden = true; $('displaySession').hidden = false; $('resume').hidden = true; message('displayStatus', 'Очікуємо відео з пульта.'); $('simulateBlock').focus(); } else $('pairingCode').focus();
+};
+$('simulateBlock').onclick = () => { message('displayStatus', 'Автозапуск заблоковано в демонстрації. Натисніть «Відновити відтворення».'); $('resume').hidden = false; $('resume').focus(); };
+$('resume').onclick = () => { message('displayStatus', 'Демовідтворення відновлено.'); $('resume').hidden = true; $('simulateBlock').focus(); };
+$('disconnectDisplay').onclick = () => { $('displaySession').hidden = true; $('pairingForm').hidden = false; $('pairingForm').reset(); message('pairingFeedback', ''); $('pairingCode').removeAttribute('aria-invalid'); $('pairingCode').focus(); };
+$('resetDemo').onclick = () => location.reload();
+renderScreens(); playback();
+</script>
+</body>
+</html>
