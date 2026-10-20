@@ -46,9 +46,11 @@ The web application utilizes a client-server architecture, where one device serv
 1. Clone the repository to your local machine.
 2. Install Node.js and npm if not already installed.
 3. Navigate to the project directory in your terminal.
-4. Install dependencies using `npm install`.
-5. Start the server using `npm start`.
+4. Install dependencies using `npm ci --omit=dev` for a normal server launch, or `npm ci` for development and tests.
+5. Create runtime directories using `mkdir -p logs uploads`, then start the server using `npm start`. This runs `node server.js` without a file watcher, on the existing default port 3000.
 6. Access the application through a web browser on both the controller and display devices.
+
+For development, `npm run dev` uses native Node.js watch mode (validated with Node.js 24.19.0). Changes to server, library, public asset and page files restart the server; refresh browser pages manually. Each restart loses in-memory sessions.
 
 ## YouTube playback
 
