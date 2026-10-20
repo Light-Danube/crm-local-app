@@ -29,27 +29,8 @@
         height: 100%;
       }
   
-      .input-container {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        height: 100%;
-        margin-bottom: 20px;
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-      }
-  
-      .input-container button {
-        padding: 10px 20px;
-        border-radius: 5px;
-        border: none;
-        background-color: lightgreen;
-        cursor: pointer;
-      }
     </style>
+    <link rel="stylesheet" href="/src/components/styles/pairing.css">
   </head>
   <body>
     <div id="videoContainer">
@@ -59,14 +40,30 @@
       <div id="youtubePlayer" hidden style="position:absolute;inset:0;width:100%;height:100%"></div>
     </div>
   
-    <div class="input-container">
-      <button id="connectToMasterButton">Приєднати екран</button>
-    </div>
+    <main id="pairingPanel" class="pairing-panel">
+      <section class="pairing-card" aria-labelledby="pairingTitle">
+        <a class="pairing-back" href="/">← На головну</a>
+        <p class="pairing-eyebrow">Пристрій для перегляду</p>
+        <h1 id="pairingTitle">Приєднайте цей екран</h1>
+        <p class="pairing-intro">Відкрийте пульт на іншому пристрої та введіть його код доступу.</p>
+        <p id="pairingConnection" class="pairing-connection" role="status">Підключення до сервера…</p>
+        <form id="pairingForm" novalidate>
+          <label for="pairingCode">Код із пульта</label>
+          <input id="pairingCode" name="pairingCode" type="text" inputmode="numeric" autocomplete="one-time-code"
+            maxlength="6" pattern="[0-9]{6}" required placeholder="000000" spellcheck="false"
+            aria-describedby="pairingHint pairingError" aria-invalid="false">
+          <p id="pairingHint" class="pairing-hint">Введіть усі 6 цифр, включно з початковими нулями. Час дії коду вказано на пульті.</p>
+          <p id="pairingError" class="pairing-error" role="alert" hidden></p>
+          <button id="connectToMasterButton" type="submit" disabled>Приєднати екран</button>
+          <button id="resetSession" class="pairing-secondary" type="button" hidden>Ввести новий код</button>
+        </form>
+        <p class="pairing-footer">Після приєднання відео з’явиться тут. Керування залишиться на пульті.</p>
+      </section>
+    </main>
 
     <div style="position:fixed;top:8px;left:8px;color:white;z-index:10">
       <p id="connectionStatus" role="status"></p>
       <button type="button" id="resumePlayback" hidden>Відновити відтворення</button>
-      <button type="button" id="resetSession" hidden>Повторити єднання</button>
     </div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="/src/video-url.js"></script>
@@ -77,7 +74,36 @@
         video: document.getElementById("videoPlayer"),
         youtubeContainer: document.getElementById("youtubePlayer"),
       });
-      const userIDButton = document.getElementById("connectToMasterButton");
+      const userIDButton = document.getElementById('connectToMasterButton');
+      const pairingPanel = document.getElementById('pairingPanel');
+      const pairingForm = document.getElementById('pairingForm');
+      const pairingCode = document.getElementById('pairingCode');
+      const pairingError = document.getElementById('pairingError');
+      const pairingConnection = document.getElementById('pairingConnection');
+      let pairingPending = false;
+      let pairingTimer;
+      function updatePairingControls() {
+        const locked = pairingPending || Boolean(displaySession);
+        pairingCode.disabled = locked;
+        userIDButton.disabled = locked || !socket.connected;
+        userIDButton.textContent = pairingPending ? 'Приєднання…' : 'Приєднати екран';
+        pairingForm.setAttribute('aria-busy', String(pairingPending));
+      }
+      function finishPairing() {
+        clearTimeout(pairingTimer);
+        pairingPending = false;
+        updatePairingControls();
+      }
+      function pairingFailure(message, invalid = false) {
+        pairingError.textContent = message;
+        pairingError.hidden = false;
+        pairingCode.setAttribute('aria-invalid', String(invalid));
+      }
+      function clearPairingError() {
+        pairingError.hidden = true;
+        pairingError.textContent = '';
+        pairingCode.setAttribute('aria-invalid', 'false');
+      }
 
       let optimizeColorChecked = false;
       let enhanceDetailsChecked = false;
@@ -92,8 +118,10 @@
       let mediaAuthorization = Promise.resolve();
       const resetSessionButton = document.getElementById('resetSession');
       function requirePairing() {
+        finishPairing();
+        pairingPanel.hidden = false;
         resetSessionButton.hidden = false;
-        userIDButton.style.display = 'block';
+        pairingFailure('Сесію завершено. Натисніть «Ввести новий код» і приєднайте екран знову.');
       }
       const playerSession = createPlayerSession({
         socket, video: videoPlayer,
@@ -116,21 +144,61 @@
         displaySession = null;
         socket.auth = {};
         resetSessionButton.hidden = true;
-        userIDButton.style.display = 'block';
+        pairingPanel.hidden = false;
+        pairingCode.value = '';
+        clearPairingError();
+        finishPairing();
         socket.connect();
       });
 
 
-      userIDButton.addEventListener('click', () => {
-        // Display a prompt to enter the master ID
-        const userID = prompt("Вставте чи введіть код доступу до сторінки-контролера");
-
-        if (userID) {
-          socket.emit('connectToMaster', userID);
-        } else {
-          alert("Введіть код доступу зі сторінки контролера!");
-        }
+      pairingCode.addEventListener('input', clearPairingError);
+      pairingCode.addEventListener('paste', event => {
+        const code = event.clipboardData?.getData('text').replace(/\s/g, '');
+        if (!/^[0-9]{6}$/.test(code || '')) return;
+        event.preventDefault();
+        pairingCode.value = code;
+        clearPairingError();
       });
+      pairingForm.addEventListener('submit', event => {
+        event.preventDefault();
+        if (pairingPending || displaySession) return;
+        const code = pairingCode.value.replace(/\s/g, '');
+        pairingCode.value = code;
+        if (!/^[0-9]{6}$/.test(code)) {
+          pairingFailure('Код має містити рівно 6 цифр із пульта.', true);
+          pairingCode.focus();
+          return;
+        }
+        if (!socket.connected) {
+          pairingFailure('Немає з’єднання із сервером. Зачекайте на відновлення та спробуйте ще раз.');
+          return;
+        }
+        clearPairingError();
+        pairingPending = true;
+        updatePairingControls();
+        pairingTimer = setTimeout(() => {
+          finishPairing();
+          pairingFailure('Сервер не підтвердив приєднання. Перевірте з’єднання та спробуйте ще раз.');
+        }, 10000);
+        socket.emit('connectToMaster', code);
+      });
+      socket.on('connect', () => {
+        pairingConnection.textContent = 'З’єднання готове. Введіть код із пульта.';
+        updatePairingControls();
+        if (!displaySession && !pairingPanel.hidden) pairingCode.focus();
+      });
+      socket.on('disconnect', () => {
+        pairingConnection.textContent = 'Немає з’єднання. Повторне підключення…';
+        const wasPending = pairingPending;
+        finishPairing();
+        if (wasPending) pairingFailure('З’єднання перервано. Після відновлення введіть код ще раз.');
+      });
+      socket.on('connect_error', () => {
+        finishPairing();
+        pairingConnection.textContent = 'Не вдалося підключитися. Повторна спроба…';
+      });
+      window.addEventListener('pagehide', () => clearTimeout(pairingTimer));
 
       socket.on('masterConnected', ({ sessionId, displayId, displayToken }) => {
         displaySession = {
@@ -140,22 +208,39 @@
         sessionStorage.setItem('displaySession', JSON.stringify(displaySession));
         socket.auth = { role: 'display', sessionId, token: displaySession.displayToken };
         resetSessionButton.hidden = true;
+        finishPairing();
+        clearPairingError();
+        pairingCode.value = '';
+        pairingPanel.hidden = true;
         mediaAuthorization = fetch(`/api/sessions/${sessionId}/media-access`, {
           method: 'POST', headers: { Authorization: `Bearer ${displaySession.displayToken}` },
         }).then(response => { if (!response.ok) throw new Error('Media access denied'); });
-        mediaAuthorization.catch(() => alert('Не вдалося відкрити медіа. Повторіть єднання.'));
-        // Disable Enterance puppet elements
-        userIDButton.style.display = 'none';
+        mediaAuthorization.catch(() => {
+          requirePairing();
+          pairingFailure('Не вдалося відкрити медіа. Натисніть «Ввести новий код» і приєднайте екран знову.');
+        });
 
         // Show elements
         videoPlayer.style.display = 'block';
       });
     
-      socket.on('session error', () => { alert('Не вдалося приєднати екран. Перевірте код доступу або оновіть його на контролері.'); });
+      socket.on('session error', ({ code }) => {
+        finishPairing();
+        const messages = {
+          INVALID_PAIRING_CODE: 'Код не знайдено або його час дії завершився. Перевірте код чи оновіть його на пульті.',
+          RATE_LIMITED: 'Забагато спроб приєднання. Зачекайте хвилину та спробуйте ще раз.',
+          DISPLAY_LIMIT: 'Усі місця для екранів зайняті. Видаліть непотрібний екран у пульті та повторіть спробу.',
+          DISPLAY_OCCUPIED: 'Пульт зараз недоступний. Перевірте, чи він відкритий, і повторіть спробу.',
+          FORBIDDEN: 'Цей екран втратив доступ. Натисніть «Ввести новий код», щоб приєднатися знову.',
+        };
+        if (code === 'FORBIDDEN' && displaySession) requirePairing();
+        pairingFailure(messages[code] || 'Не вдалося приєднати екран. Перевірте код і з’єднання.', code === 'INVALID_PAIRING_CODE');
+      });
       socket.on('session revoked', requirePairing);
 
-      socket.on('error', (errorMessage) => {
-        alert(errorMessage);
+      socket.on('error', () => {
+        finishPairing();
+        pairingFailure('Не вдалося обробити код. Перевірте його та повторіть спробу.', true);
       });
 
       // Revisioned playback/effects and media are handled by playerSession.
@@ -178,6 +263,8 @@
 
           videoPlayer.style.filter = filters || "none";
       }
+      pairingPanel.hidden = Boolean(displaySession);
+      updatePairingControls();
       if (displaySession) socket.auth = { role: 'display', sessionId: displaySession.sessionId, token: displaySession.displayToken };
       socket.connect();
     </script>

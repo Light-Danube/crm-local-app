@@ -61,7 +61,7 @@ async function pairedDisplay(context, base, controller) {
   assert.ok(pairingCode, 'controller visibly supplies a pairing code');
   const display = await context.newPage();
   await display.goto(base + '/video');
-  display.once('dialog', dialog => dialog.accept(pairingCode));
+  await display.locator('#pairingCode').fill(pairingCode);
   await display.locator('#connectToMasterButton').click();
   await ready(display);
   return display;
