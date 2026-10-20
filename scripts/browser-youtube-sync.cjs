@@ -60,8 +60,7 @@ test('YouTube explicit start/pause/resume aligns raw decoded clocks across delay
   await master.goto(app.base+'/master.html?type=url'); await ready(master);
   const code = (await master.locator('#showConnectionID').textContent()).match(/\b\d{6}\b/)?.[0];
   assert.ok(code);
-  display.once('dialog', dialog => dialog.accept(code));
-  await display.goto(app.base+'/video'); await display.locator('#connectToMasterButton').click(); await ready(display);
+  await display.goto(app.base+'/video'); await display.locator('#pairingCode').fill(code); await display.locator('#connectToMasterButton').click(); await ready(display);
   await master.locator('#youtubeUrlInput').fill('https://www.youtube.com/watch?v=RoYXgdHafBA&list=RDRoYXgdHafBA&start_radio=1');
   await master.locator('#streamButton').click();
   for (const page of [master,display]) await page.waitForFunction(() => videoPlayer.isYouTube && videoPlayer.readyState >= 1 && playerSession.isReady());

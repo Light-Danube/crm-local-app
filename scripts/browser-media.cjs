@@ -46,13 +46,13 @@ test('media UI bounds local URLs, handles local files and controls YouTube throu
   const errors=[],alerts=[];let code;
   for(const page of [master,display])page.on('pageerror',error=>errors.push(error.message));
   master.on('dialog',async dialog=>{alerts.push(dialog.message());await dialog.dismiss()});
-  display.on('dialog',async dialog=>{if(dialog.type()==='prompt')await dialog.accept(code);else{alerts.push(dialog.message());await dialog.dismiss()}});
+  display.on('dialog',async dialog=>{alerts.push(dialog.message());await dialog.dismiss()});
   await master.goto(app.base+'/master.html?type=local');await ready(master);
   await master.waitForFunction(()=>document.querySelector('#uploadGuidance').textContent.includes('1234567'));
   assert.equal(await master.locator('#videoFile').getAttribute('multiple'),null);
   assert.equal(await master.locator('#videoFile').getAttribute('accept'),'video/mp4,video/webm,.mp4,.webm');
   code=(await master.locator('#showConnectionID').textContent()).match(/\b\d{6}\b/)?.[0];assert.ok(code);
-  await display.goto(app.base+'/video');await display.locator('#connectToMasterButton').click();await ready(display);
+  await display.goto(app.base+'/video');await display.locator('#pairingCode').fill(code);await display.locator('#connectToMasterButton').click();await ready(display);
   await master.locator('#videoFile').setInputFiles(fixturePath);
   await master.locator('#uploadButton').click();
   await display.waitForFunction(()=>document.querySelector('video').readyState>=2);
